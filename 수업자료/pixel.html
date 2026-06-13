@@ -3,7 +3,6 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- [v2.00 골드 버전 패치] 타이틀 명칭에서 버전 표시 제거 -->
     <title>이진수 픽셀 암호 해독기</title>
     <!-- 아기자기하고 시인성이 좋은 교육용 글꼴 및 아이콘 라이브러리 연동 -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -83,7 +82,6 @@
             <div class="flex items-center gap-2">
                 <span class="text-2xl text-indigo-500 animate-bounce"><i class="fa-solid fa-wand-magic-sparkles"></i></span>
                 <div>
-                    <!-- [v2.00 골드 버전 패치] 메인 헤더 타이틀에서 버전 뱃지 제거 -->
                     <h1 class="font-jua text-xl md:text-2xl text-slate-800">이진수 픽셀 암호 해독기</h1>
                     <p class="text-slate-500 font-bold text-[10px] md:text-xs mt-0.5">도면의 숫자를 직접 클릭하거나 오른쪽 칸에 색을 칠해보세요!</p>
                 </div>
@@ -144,17 +142,13 @@
             </div>
         </div>
 
-        <!-- 하단 제어 액션 패널 (슬림화 및 파일 직접 다운로드 버튼 통합) -->
-        <div class="flex gap-3 w-full max-w-lg mx-auto justify-between flex-shrink-0 mt-1">
+        <!-- 하단 제어 액션 패널 (슬림화 및 원본 2버튼 구조 복원) -->
+        <div class="flex gap-3 w-full max-w-md mx-auto justify-between flex-shrink-0 mt-1">
             <button onclick="clearCanvas()" class="bg-slate-600 hover:bg-slate-700 active:translate-y-0.5 text-white font-jua text-sm px-3 py-2 rounded-xl transition shadow flex-1 flex items-center justify-center gap-1.5">
                 <i class="fa-solid fa-eraser"></i> 전체 지우기
             </button>
             <button onclick="checkAnswers()" class="bg-emerald-500 hover:bg-emerald-600 active:translate-y-0.5 text-white font-jua text-sm px-4 py-2 rounded-xl transition shadow-lg flex-1 flex items-center justify-center gap-1.5">
                 <i class="fa-solid fa-square-check"></i> 채점하기
-            </button>
-            <!-- [v2.00 골드 패치] code_artifact 방지용 브라우저 직접 내보내기 세이브 버튼 완비 -->
-            <button onclick="downloadCurrentHTML()" class="bg-amber-500 hover:bg-amber-600 active:translate-y-0.5 text-white font-jua text-sm px-3 py-2 rounded-xl transition shadow flex-1 flex items-center justify-center gap-1.5">
-                <i class="fa-solid fa-download"></i> 파일 저장
             </button>
         </div>
 
@@ -1029,24 +1023,6 @@
         function closeSuccessModal() {
             document.getElementById('successModal').classList.add('hidden');
             loadQuestion(0);
-        }
-
-        /**
-         * [v2.00 골드 패치] 사용자가 로컬 기기에 항상 'pixel_v2_00.html' 이라는 명확한 파일명으로 다운로드받을 수 있게 해주는 강제 세이브 함수
-         */
-        function downloadCurrentHTML() {
-            playPopSound();
-            // 전체 문서 HTML 가공
-            const htmlContent = "<!DOCTYPE html>\n" + document.documentElement.outerHTML;
-            const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = 'pixel_v2_00.html'; // 파일명을 명확하게 강제 고정
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
         }
     </script>
 </body>

@@ -1,0 +1,1127 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>내 맘대로 보물지도 만들기</title>
+    <!-- 아동용 아기자기하고 시인성이 좋은 폰트 및 아이콘 CDN 연동 -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    
+    <!-- 테일윈드 CSS 로드 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        jua: ['Jua', 'sans-serif'],
+                        noto: ['Noto Sans KR', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            background-color: #f0f4f8;
+            user-select: none;
+        }
+
+        /* 아케이드 게임기 느낌의 외곽 테두리 디자인 */
+        .arcade-container {
+            border: 6px solid #1e293b;
+            box-shadow: 12px 12px 0px #1e293b;
+        }
+
+        /* 로봇 이동 시 부드럽고 둥실둥실한 움직임 선사 (JS 가속도 튜닝을 위한 기본값 마련) */
+        #robot {
+            transition: left 0.5s cubic-bezier(0.25, 1, 0.5, 1), top 0.5s cubic-bezier(0.25, 1, 0.5, 1), transform 0.3s ease-in-out;
+        }
+
+        /* 불길 타오르는 애니메이션 */
+        @keyframes fire-flicker {
+            0% { transform: scale(0.95) rotate(-3deg); }
+            50% { transform: scale(1.15) rotate(4deg); }
+            100% { transform: scale(0.95) rotate(-3deg); }
+        }
+
+        .fire-sprite {
+            animation: fire-flicker 0.4s ease-in-out infinite alternate;
+        }
+
+        /* 반짝이는 별 애니메이션 */
+        @keyframes star-twinkle {
+            0% { opacity: 0.3; transform: scale(0.8); }
+            50% { opacity: 1; transform: scale(1.2); }
+            100% { opacity: 0.3; transform: scale(0.8); }
+        }
+
+        .star-item {
+            animation: star-twinkle 1s infinite ease-in-out;
+        }
+
+        /* 클릭 가능한 맵 메이커 배치용 고스트 링 깜빡임 효과 */
+        @keyframes ghost-pulse {
+            0% { opacity: 0.2; transform: scale(0.9); }
+            100% { opacity: 0.7; transform: scale(1.1); }
+        }
+
+        .ghost-anchor {
+            animation: ghost-pulse 0.8s infinite alternate;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-center items-center p-1.5 md:p-3">
+
+    <!-- 메인 보드게임 컨테이너 (태블릿 최적화: 여백 및 간격을 약간 축소하여 스크롤 방지) -->
+    <div class="w-full max-w-6xl bg-white rounded-[24px] p-3 md:p-4 arcade-container flex flex-col justify-between gap-2 relative">
+        
+        <!-- 상단 컨트롤 헤더 (웹페이지 시각적 버전 표시 완벽 제거) -->
+        <div class="flex flex-col md:flex-row justify-between items-center border-b-2 border-dashed border-[#cbd5e1] pb-1.5 gap-1.5">
+            <div class="flex items-center gap-2">
+                <span class="text-2xl text-amber-500 animate-bounce"><i class="fa-solid fa-map-location-dot"></i></span>
+                <div>
+                    <h1 class="font-jua text-xl md:text-2xl text-slate-800">내 맘대로 보물지도 만들기</h1>
+                    <p class="text-slate-500 font-bold text-[11px] md:text-xs mt-0.5">도구를 선택하고 지도 위에 클릭해 직접 출발지, 불, 보물을 마음껏 배치해 보세요!</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 상단 영역에 단독 배치된 '지도 디자인 도구함' (콤팩트화 / 버튼 우선 배치 및 문구 간소화) -->
+        <div class="w-full bg-slate-800 border-2 border-slate-700 rounded-2xl p-2 flex flex-wrap justify-between items-center shadow-inner gap-2">
+            <!-- [변경 완료] 도구함 버튼의 위치를 앞(우선)으로 배치 -->
+            <div class="grid grid-cols-3 gap-1.5 w-full md:w-[460px] order-first">
+                <!-- 출발 로봇 배치 도구 -->
+                <button onclick="selectTool('tool-robot')" id="tool-robot" class="flex items-center justify-center gap-1.5 p-1.5 rounded-xl border-2 border-slate-600 bg-slate-900 hover:bg-slate-700 text-white font-jua text-[11px] md:text-xs transition duration-150 shadow w-full">
+                    <i class="fa-solid fa-robot text-indigo-400 text-xs md:text-sm"></i>
+                    <span>로봇 출발지 설정</span>
+                </button>
+                <!-- 불 장애물 배치 도구 -->
+                <button onclick="selectTool('tool-fire')" id="tool-fire" class="flex items-center justify-center gap-1.5 p-1.5 rounded-xl border-2 border-slate-600 bg-slate-900 hover:bg-slate-700 text-white font-jua text-[11px] md:text-xs transition duration-150 shadow w-full">
+                    <i class="fa-solid fa-fire text-red-400 text-xs md:text-sm"></i>
+                    <span>불길 장애물 배치</span>
+                </button>
+                <!-- 보물 배치 도구 -->
+                <button onclick="selectTool('tool-treasure')" id="tool-treasure" class="flex items-center justify-center gap-1.5 p-1.5 rounded-xl border-2 border-slate-600 bg-slate-900 hover:bg-slate-700 text-white font-jua text-[11px] md:text-xs transition duration-150 shadow w-full">
+                    <i class="fa-solid fa-gem text-amber-400 text-xs md:text-sm"></i>
+                    <span>보물 상자 배치</span>
+                </button>
+            </div>
+            <!-- [변경 완료] 오직 "한번 더 누르면 취소됩니다!" 문구만 노출하도록 변경 -->
+            <div class="flex items-center gap-2 text-white font-jua text-sm md:text-base px-1">
+                <i class="fa-solid fa-screwdriver-wrench text-amber-400"></i>
+                <span>한번 더 누르면 취소됩니다!</span>
+            </div>
+        </div>
+
+        <!-- 게임 핵심 격자판 및 스티커 패널 (2단 정렬 구성) -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-3 items-stretch mt-0.5">
+            
+            <!-- 좌측: 자유 배치식 도로판 및 상단 시뮬레이션 버튼 컨트롤바 통합 (4행 3열) -->
+            <div class="lg:col-span-8 flex flex-col justify-between gap-2">
+                
+                <!-- 3대 제어 버튼 -->
+                <div class="grid grid-cols-3 gap-1.5 w-full">
+                    <!-- 로봇 출발 -->
+                    <button onclick="startSimulation()" class="flex items-center justify-between p-1.5 md:p-2 rounded-xl border-2 border-slate-800 bg-emerald-500 hover:bg-emerald-600 text-white font-jua text-xs md:text-sm transition duration-150 shadow-md">
+                        <div class="flex items-center gap-1.5">
+                            <span class="w-7 h-7 rounded-full bg-white flex items-center justify-center text-emerald-600 border border-slate-800 shadow-inner">
+                                <i class="fa-solid fa-play text-xs"></i>
+                            </span>
+                            <span class="tracking-wide text-white">로봇 출발</span>
+                        </div>
+                    </button>
+                    <!-- 로봇 리셋 -->
+                    <button onclick="resetSimulation()" class="flex items-center justify-between p-1.5 md:p-2 rounded-xl border-2 border-slate-800 bg-amber-500 hover:bg-amber-600 text-white font-jua text-xs md:text-sm transition duration-150 shadow-md">
+                        <div class="flex items-center gap-1.5">
+                            <span class="w-7 h-7 rounded-full bg-white flex items-center justify-center text-amber-500 border border-slate-800 shadow-inner">
+                                <i class="fa-solid fa-arrow-rotate-left text-xs"></i>
+                            </span>
+                            <span class="tracking-wide text-white">로봇 리셋</span>
+                        </div>
+                    </button>
+                    <!-- 전체 초기화 -->
+                    <button onclick="clearEverything()" class="flex items-center justify-between p-1.5 md:p-2 rounded-xl border-2 border-slate-800 bg-rose-500 hover:bg-rose-600 text-white font-jua text-xs md:text-sm transition duration-150 shadow-md">
+                        <div class="flex items-center gap-1.5">
+                            <span class="w-7 h-7 rounded-full bg-white flex items-center justify-center text-rose-600 border border-slate-800 shadow-inner">
+                                <i class="fa-solid fa-trash-can text-xs"></i>
+                            </span>
+                            <span class="tracking-wide text-white">전체 초기화</span>
+                        </div>
+                    </button>
+                </div>
+
+                <!-- 도로망 뷰포트 -->
+                <div class="w-full aspect-[16/9] max-h-[270px] bg-slate-50 border-4 border-slate-800 rounded-[24px] relative overflow-hidden shadow-inner animate-[pop_0.2s_ease-out]" id="mapViewport">
+                    
+                    <!-- 격자 도로망 백그라운드 디자인 그리기 -->
+                    <!-- 가로 도로 4줄 -->
+                    <div class="absolute bg-slate-800 h-6 left-0 right-0 rounded-full" style="top: calc(15% - 12px);"></div>
+                    <div class="absolute bg-slate-800 h-6 left-0 right-0 rounded-full" style="top: calc(38% - 12px);"></div>
+                    <div class="absolute bg-slate-800 h-6 left-0 right-0 rounded-full" style="top: calc(61% - 12px);"></div>
+                    <div class="absolute bg-slate-800 h-6 left-0 right-0 rounded-full" style="top: calc(84% - 12px);"></div>
+
+                    <!-- 세로 도로 3줄 -->
+                    <div class="absolute bg-slate-800 w-6 top-0 bottom-0 rounded-full" style="left: calc(25% - 12px);"></div>
+                    <div class="absolute bg-slate-800 w-6 top-0 bottom-0 rounded-full" style="left: calc(50% - 12px);"></div>
+                    <div class="absolute bg-slate-800 w-6 top-0 bottom-0 rounded-full" style="left: calc(75% - 12px);"></div>
+
+                    <!-- 아이들의 터치를 돕기 위해 상시 표출되는 반투명 흰색 원형 격자 도트 가이드 레이어 (클릭 방해 차단) -->
+                    <div id="guidesLayer" class="absolute inset-0 pointer-events-none z-10"></div>
+
+                    <!-- 스티커가 보물상자(z-20)보다 항상 위에 표시되도록 z-30 레이어로 지정하되, 클릭 방해하지 않도록 pointer-events-none 부여 -->
+                    <div id="stickersLayer" class="absolute inset-0 z-30 pointer-events-none"></div>
+
+                    <!-- 장애물 불길 및 보물상자 동적 배치용 레이어 (클릭 방해 차단) -->
+                    <div id="hazardsLayer" class="absolute inset-0 z-20 pointer-events-none"></div>
+                    <div id="treasureLayer" class="absolute inset-0 z-20 pointer-events-none"></div>
+
+                    <!-- 실제로 클릭을 받는 핫스팟 레이어는 z-40으로 고정하고, 영역 외 터치가 통과하도록 pointer-events-none 설정 -->
+                    <div id="anchorsLayer" class="absolute inset-0 z-40 pointer-events-none"></div>
+
+                    <!-- 주행 주체: 로봇이 다른 모든 요소 위에 보이도록 z-50 레이어로 완벽 배치 -->
+                    <div id="robot" class="absolute z-50 pointer-events-none transition-all duration-500" style="left: 3%; top: calc(84% - 26px); width: 56px; height: 56px;">
+                        <svg viewBox="0 0 100 100" class="w-full h-full drop-shadow-md">
+                            <!-- 로봇 외부 그림자 및 바퀴 구조 -->
+                            <rect x="6" y="18" width="14" height="22" rx="6" fill="#0f172a"/>
+                            <rect x="6" y="60" width="14" height="22" rx="6" fill="#0f172a"/>
+                            <rect x="80" y="18" width="14" height="22" rx="6" fill="#0f172a"/>
+                            <rect x="80" y="60" width="14" height="22" rx="6" fill="#0f172a"/>
+                            <!-- 메인 바디 -->
+                            <rect x="16" y="16" width="68" height="68" rx="20" fill="#334155" stroke="#1e293b" stroke-width="4"/>
+                            <!-- 전방 디스플레이 화면 -->
+                            <rect x="24" y="24" width="52" height="52" rx="14" fill="#0ea5e9" stroke="#0284c7" stroke-width="2"/>
+                            <!-- 수줍은 볼터치 -->
+                            <circle cx="34" cy="62" r="5" fill="#f43f5e" opacity="0.6"/>
+                            <circle cx="66" cy="62" r="5" fill="#f43f5e" opacity="0.6"/>
+                            <!-- 귀여운 미소 눈 (LED 스타일) -->
+                            <path d="M 32 46 Q 38 38 44 46" fill="none" stroke="#ffffff" stroke-width="4" stroke-linecap="round"/>
+                            <path d="M 56 46 Q 62 38 68 46" fill="none" stroke="#ffffff" stroke-width="4" stroke-linecap="round"/>
+                            <!-- 로봇 전면 머리(우측)를 향해 흐르는 노란 전진형 이중 셰브론 빔 -->
+                            <path d="M 35 32 L 53 50 L 35 68" fill="none" stroke="#facc15" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M 51 32 L 69 50 L 51 68" fill="none" stroke="#facc15" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+                            <!-- 전방 헤드라이트 원뿔형 빛 투사 효과 -->
+                            <path d="M 82 40 L 98 25 L 98 75 L 82 60 Z" fill="#fef08a" opacity="0.6"/>
+                        </svg>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- 우측: 교통 표지판 스타일 스티커 선택창 -->
+            <div class="lg:col-span-4 flex flex-col gap-3">
+                <div class="bg-slate-100 border-4 border-slate-800 p-3 rounded-[24px] shadow-inner flex flex-col h-full justify-start gap-2.5">
+                    
+                    <!-- 스티커 세션 -->
+                    <div class="flex flex-col gap-2">
+                        <h3 class="font-jua text-lg md:text-xl text-slate-800 border-b-2 border-slate-300 pb-1 flex items-center gap-2">
+                            <i class="fa-solid fa-tags text-rose-500"></i> 코딩 스티커 선택
+                        </h3>
+                        <p class="text-[10px] md:text-[11px] text-slate-500 font-bold leading-normal">붙이고 싶은 스티커를 클릭하고, 지도의 교차로를 누르세요. 붙인 곳을 한번 더 누르면 바로 떼어집니다!</p>
+                        
+                        <div class="flex flex-col gap-1.5">
+                            <!-- 파란색: 뒤로 돌기 (유턴) -->
+                            <button onclick="selectTool('sticker-blue')" id="sticker-blue" class="flex items-center justify-between p-2 rounded-xl border-4 border-slate-800 bg-blue-600 hover:bg-blue-700 text-white font-jua text-xs md:text-sm transition duration-150 shadow-md">
+                                <div class="flex items-center gap-2">
+                                    <svg viewBox="0 0 100 100" class="w-7 h-7 flex-shrink-0 drop-shadow">
+                                      <circle cx="50" cy="50" r="44" fill="#1d4ed8" stroke="#ffffff" stroke-width="4"/>
+                                      <circle cx="50" cy="50" r="30" fill="none" stroke="#3b82f6" stroke-width="2" stroke-dasharray="5"/>
+                                    </svg>
+                                    <div class="text-left">
+                                        <div class="text-[9px] text-blue-200 font-bold leading-none">파란색 스티커</div>
+                                        <div class="mt-0.5">뒤로 돌기 (유턴)</div>
+                                    </div>
+                                </div>
+                            </button>
+
+                            <!-- 연두색: 오른쪽으로 돌기 (우회전) -->
+                            <button onclick="selectTool('sticker-green')" id="sticker-green" class="flex items-center justify-between p-2 rounded-xl border-4 border-slate-800 bg-green-600 hover:bg-green-700 text-white font-jua text-xs md:text-sm transition duration-150 shadow-md">
+                                <div class="flex items-center gap-2">
+                                    <svg viewBox="0 0 100 100" class="w-7 h-7 flex-shrink-0 drop-shadow">
+                                      <circle cx="50" cy="50" r="44" fill="#16a34a" stroke="#ffffff" stroke-width="4"/>
+                                      <circle cx="50" cy="50" r="30" fill="none" stroke="#22c55e" stroke-width="2" stroke-dasharray="5"/>
+                                    </svg>
+                                    <div class="text-left">
+                                        <div class="text-[9px] text-green-200 font-bold leading-none">연두색 스티커</div>
+                                        <div class="mt-0.5">오른쪽으로 돌기 (우회전)</div>
+                                    </div>
+                                </div>
+                            </button>
+
+                            <!-- 노란색: 왼쪽으로 돌기 (좌회전) -->
+                            <button onclick="selectTool('sticker-yellow')" id="sticker-yellow" class="flex items-center justify-between p-2 rounded-xl border-4 border-slate-800 bg-amber-500 hover:bg-amber-600 text-white font-jua text-xs md:text-sm transition duration-150 shadow-md">
+                                <div class="flex items-center gap-2">
+                                    <svg viewBox="0 0 100 100" class="w-7 h-7 flex-shrink-0 drop-shadow">
+                                      <circle cx="50" cy="50" r="44" fill="#eab308" stroke="#ffffff" stroke-width="4"/>
+                                      <circle cx="50" cy="50" r="30" fill="none" stroke="#facc15" stroke-width="2" stroke-dasharray="5"/>
+                                    </svg>
+                                    <div class="text-left">
+                                        <div class="text-[9px] text-yellow-100 font-bold leading-none">노란색 스티커</div>
+                                        <div class="mt-0.5">왼쪽으로 돌기 (좌회전)</div>
+                                    </div>
+                                </div>
+                            </button>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+        </div>
+
+        <!-- 하단 피드백 전광판 -->
+        <div class="border-t-2 border-dashed border-[#cbd5e1] pt-1.5 text-center min-h-[44px] flex items-center justify-center">
+            <p id="systemMessage" class="font-jua text-lg md:text-xl text-slate-500 tracking-wide transition-all duration-300">
+                원하는 명령 스티커를 선택하여 격자판에 코딩 지도를 설계해 주세요!
+            </p>
+        </div>
+
+    </div>
+
+    <!-- 대성공 오버레이 모달 창 -->
+    <div id="successModal" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-[32px] border-8 border-emerald-400 p-8 max-w-md w-full text-center shadow-2xl relative overflow-hidden animate-[pop_0.3s_ease-out]">
+            <div class="absolute top-4 left-4 text-3xl text-amber-400 star-item"><i class="fa-solid fa-sparkles"></i></div>
+            <div class="absolute bottom-4 right-4 text-3xl text-indigo-400 star-item"><i class="fa-solid fa-star"></i></div>
+            
+            <span class="text-7xl text-amber-500 animate-bounce block"><i class="fa-solid fa-trophy"></i></span>
+            <h2 class="font-jua text-4xl text-slate-800 mt-4 mb-2">미션 대성공! 🎉</h2>
+            <p class="text-slate-600 font-bold mb-6">스스로 설계한 알고리즘으로 완벽하게 모든 보물을 찾았습니다!</p>
+            
+            <button onclick="closeSuccessModal()" class="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-jua text-2xl py-4 rounded-2xl transition transform active:scale-95 shadow-lg">
+                도전 계속하기 🚀
+            </button>
+        </div>
+    </div>
+
+    <!-- 브라우저 주파수 합성 오디오 엔진 -->
+    <script>
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+        function playTone(freq, type, duration, gainStart = 0.1) {
+            try {
+                if (audioCtx.state === 'suspended') {
+                    audioCtx.resume();
+                }
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                
+                osc.type = type;
+                osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+                
+                gain.gain.setValueAtTime(gainStart, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+                
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                
+                osc.start();
+                osc.stop(audioCtx.currentTime + duration);
+            } catch (e) {
+                console.log("Audio API 제한");
+            }
+        }
+
+        function playPopSound() { playTone(880, 'sine', 0.1); }
+        function playSuccessSound() {
+            playTone(523.25, 'triangle', 0.15, 0.15); // C5
+            setTimeout(() => playTone(659.25, 'triangle', 0.15, 0.15), 100); // E5
+            setTimeout(() => playTone(783.99, 'triangle', 0.15, 0.15), 200); // G5
+            setTimeout(() => playTone(1046.50, 'triangle', 0.4, 0.2), 300); // C6
+        }
+        function playExplosionSound() {
+            playTone(180, 'sawtooth', 0.5, 0.2);
+            playTone(90, 'triangle', 0.6, 0.35);
+        }
+        function playCrashSound() {
+            playTone(330, 'sine', 0.2, 0.15);
+            setTimeout(() => playTone(220, 'sine', 0.3, 0.15), 150);
+        }
+    </script>
+
+    <!-- 격자 및 샌드박스 주행 시뮬레이터 프로그램 로직 -->
+    <script>
+        // 격자 표준 좌표 매핑 사전 (가로세로 비율 동일 정렬 - 3열 구조에 맞춘 너비 재배정)
+        const rowCoords = [15, 38, 61, 84];
+        const colCoords = [25, 50, 75];
+        
+        // 유효 노드 열 좌표 목록 (-0.5는 출발지, 2.5는 골드 5번째 막다른 끝점)
+        const colNodes = [-0.5, 0, 1, 2, 2.5];
+
+        // 샌드박스 맵 상태 보존 변수들
+        let startRow = 3;             // 로봇 출발 행 인덱스 (0, 1, 2, 3 기본 3)
+        let treasures = {};           // "r,c" => true 다중 보물 배치 활성화!
+        let hazards = {};             // "r,c" => true (오직 교차로에만 허용)
+        let boardStickers = {};       // "r,c" => 'blue'/'green'/'yellow'
+        
+        let selectedTool = null;      // 현재 쥐고 있는 마법 도구명
+        let isSimulating = false;     // 주행 시뮬레이션 활성화 플래그
+        let activeTreasures = {};     // 시뮬레이션 진행 중 실시간 남은 보물 추적용
+        let currentAngle = 0;         // 누적 회전 각도 (부드러운 최단거리 회전용)
+
+        // 방향 벡터 사전 및 방향 회전도 매핑
+        const directions = {
+            "Up": { r: -1, c: 0, angle: -90 },
+            "Right": { r: 0, c: 1, angle: 0 },
+            "Down": { r: 1, c: 0, angle: 90 },
+            "Left": { r: 0, c: -1, angle: 180 }
+        };
+
+        const turnRightMap = { "Up": "Right", "Right": "Down", "Down": "Left", "Left": "Up" };
+        const turnLeftMap = { "Up": "Left", "Left": "Down", "Down": "Right", "Right": "Up" };
+        const uTurnMap = { "Up": "Down", "Right": "Left", "Down": "Up", "Left": "Right" };
+
+        window.onload = function() {
+            // 기본 맵 초기값 세팅 시 로봇만 배치되도록 treasures와 hazards를 빈 객체로 초기 설정
+            startRow = 3;
+            treasures = {};           // 보물상자 없음
+            hazards = {};             // 장애물 불길 없음
+            initMap();
+        };
+
+        /**
+         * 샌드박스 맵 렌더링 및 클릭 감지 존 재생성
+         */
+        function initMap() {
+            // 1. 반투명한 격자점 가이드라인 상시 렌더링
+            renderGuides();
+
+            // 2. 코딩 스티커 렌더링 (영구 소장 레이어)
+            renderStickers();
+
+            // 3. 장애물 불길 렌더링 (60px 대형 불)
+            renderHazards();
+
+            // 4. 보물상자 렌더링 (60px 대형 상자)
+            renderTreasures();
+
+            // 5. 로봇 대기선 원복
+            positionRobotAtStart();
+
+            // 6. 클릭 앵커 핫스팟 목록 재생성
+            renderClickAnchors();
+        }
+
+        /**
+         * 상시 표출되는 반투명 흰색 원형 격자 도트 가이드 레이어
+         */
+        function renderGuides() {
+            const container = document.getElementById('guidesLayer');
+            container.innerHTML = '';
+
+            // 교차로 12곳 도트 가이드
+            for (let r = 0; r < 4; r++) {
+                for (let c = 0; c < 3; c++) {
+                    createGuideDot(r, c, container);
+                }
+            }
+            // 좌측 시작 진입로 4곳 도트 가이드
+            for (let r = 0; r < 4; r++) {
+                createGuideDot(r, -0.5, container);
+            }
+            // 우측 탈출로 4곳 도트 가이드
+            for (let r = 0; r < 4; r++) {
+                createGuideDot(r, 2.5, container);
+            }
+        }
+
+        /**
+         * 가이드 도트 한 개 생성 헬퍼
+         */
+        function createGuideDot(r, c, container) {
+            const x = getCoordPercent(c, 'x');
+            const y = getCoordPercent(r, 'y');
+
+            const dot = document.createElement('div');
+            dot.className = "absolute rounded-full bg-white/50 border border-slate-900/30 shadow-sm pointer-events-none";
+            dot.style.left = `calc(${x}% - 6px)`;
+            dot.style.top = `calc(${y}% - 6px)`;
+            dot.style.width = "12px";
+            dot.style.height = "12px";
+            container.appendChild(dot);
+        }
+
+        /**
+         * 지도 내에 영구 배치된 코딩 스티커 렌더링 (v1.03 규격 44px 복원)
+         */
+        function renderStickers() {
+            const container = document.getElementById('stickersLayer');
+            container.innerHTML = '';
+            
+            Object.keys(boardStickers).forEach(key => {
+                const parts = key.split(',').map(Number);
+                const r = parts[0];
+                const c = parts[1];
+                const val = boardStickers[key];
+
+                const x = getCoordPercent(c, 'x');
+                const y = getCoordPercent(r, 'y');
+
+                const div = document.createElement('div');
+                div.className = "absolute z-30 pointer-events-none transition-all duration-300";
+                div.style.left = `calc(${x}% - 22px)`;
+                div.style.top = `calc(${y}% - 22px)`;
+                div.style.width = "44px";
+                div.style.height = "44px";
+
+                // 화살표가 제거되고, 입체적인 유광 아케이드 실 형태로 바뀐 영롱한 단색 스티커 출력
+                let stickerSvg = '';
+                if (val === 'blue') {
+                    stickerSvg = `<svg viewBox="0 0 100 100" class="w-full h-full drop-shadow"><circle cx="50" cy="50" r="44" fill="#1d4ed8" stroke="#ffffff" stroke-width="6"/><circle cx="50" cy="50" r="30" fill="none" stroke="#3b82f6" stroke-width="2" stroke-dasharray="5"/><ellipse cx="40" cy="35" rx="8" ry="4" fill="#ffffff" opacity="0.4"/></svg>`;
+                } else if (val === 'green') {
+                    stickerSvg = `<svg viewBox="0 0 100 100" class="w-full h-full drop-shadow"><circle cx="50" cy="50" r="44" fill="#16a34a" stroke="#ffffff" stroke-width="6"/><circle cx="50" cy="50" r="30" fill="none" stroke="#22c55e" stroke-width="2" stroke-dasharray="5"/><ellipse cx="40" cy="35" rx="8" ry="4" fill="#ffffff" opacity="0.4"/></svg>`;
+                } else if (val === 'yellow') {
+                    stickerSvg = `<svg viewBox="0 0 100 100" class="w-full h-full drop-shadow"><circle cx="50" cy="50" r="44" fill="#eab308" stroke="#ffffff" stroke-width="6"/><circle cx="50" cy="50" r="30" fill="none" stroke="#facc15" stroke-width="2" stroke-dasharray="5"/><ellipse cx="40" cy="35" rx="8" ry="4" fill="#ffffff" opacity="0.4"/></svg>`;
+                }
+
+                div.innerHTML = stickerSvg;
+                container.appendChild(div);
+            });
+        }
+
+        /**
+         * 장애물 불길 렌더링 (v1.03 규격 60px 복원)
+         */
+        function renderHazards() {
+            const container = document.getElementById('hazardsLayer');
+            container.innerHTML = '';
+            
+            Object.keys(hazards).forEach(key => {
+                const parts = key.split(',').map(Number);
+                const r = parts[0];
+                const c = parts[1];
+
+                const x = getCoordPercent(c, 'x');
+                const y = getCoordPercent(r, 'y');
+
+                const div = document.createElement('div');
+                div.className = "absolute fire-sprite z-20 pointer-events-none";
+                div.style.left = `calc(${x}% - 30px)`;
+                div.style.top = `calc(${y}% - 32px)`;
+                div.style.width = "60px";
+                div.style.height = "60px";
+                
+                div.innerHTML = `
+                    <svg viewBox="0 0 100 100" class="w-full h-full drop-shadow-lg">
+                        <!-- 타오르는 불길의 외부 아웃라인 이펙트 -->
+                        <path d="M50 5 C15 35 25 72 50 96 C75 72 85 35 50 5 Z" fill="#ef4444" stroke="#7f1d1d" stroke-width="2"/>
+                        <!-- 역동적인 내측 오렌지 불꽃 레이어 -->
+                        <path d="M50 24 C28 48 38 72 50 96 C62 72 72 48 50 24 Z" fill="#f97316"/>
+                        <!-- 밝게 타오르는 옐로우 코어 -->
+                        <path d="M50 44 C38 62 44 80 50 96 C56 80 62 62 50 44 Z" fill="#facc15"/>
+                        <!-- 심장에 비치는 빛 반사 하이라이트 -->
+                        <circle cx="50" cy="76" r="6" fill="#ffffff" opacity="0.9"/>
+                        <!-- 귀여운 미니 파란 불꽃 레이어 하단에 추가 -->
+                        <path d="M50 85 Q45 88 50 96 Q55 88 50 85 Z" fill="#38bdf8"/>
+                    </svg>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        /**
+         * 보물상자 렌더링 (v1.03 규격 60px 복원)
+         */
+        function renderTreasures(targetList = treasures) {
+            const container = document.getElementById('treasureLayer');
+            container.innerHTML = '';
+
+            Object.keys(treasures).forEach(key => {
+                const parts = key.split(',').map(Number);
+                const r = parts[0];
+                const c = parts[1];
+
+                const x = getCoordPercent(c, 'x');
+                const y = getCoordPercent(r, 'y');
+
+                const div = document.createElement('div');
+                div.className = "absolute z-20 pointer-events-none animate-[pop_0.2s_ease-out]";
+                div.style.left = `calc(${x}% - 30px)`;
+                div.style.top = `calc(${y}% - 30px)`;
+                div.style.width = "60px";
+                div.style.height = "60px";
+                
+                const isCollected = isSimulating && !targetList[key];
+
+                if (isCollected) {
+                    div.style.opacity = "0.3";
+                    div.style.transform = "scale(0.85)";
+                    div.style.transition = "all 0.3s ease";
+                    div.innerHTML = `
+                        <div class="relative w-full h-full opacity-60">
+                            <svg viewBox="0 0 100 100" class="w-full h-full">
+                                <path d="M 14 38 L 14 18 C 14 18, 20 10, 26 18 L 26 38 Z" fill="#4b5563" stroke="#1e293b" stroke-width="2"/>
+                                <path d="M 86 38 L 86 18 C 86 18, 80 10, 74 18 L 74 38 Z" fill="#4b5563" stroke="#1e293b" stroke-width="2"/>
+                                <path d="M 14 18 Q 50 -5 86 18 L 86 28 Q 50 8 14 28 Z" fill="#4b5563" stroke="#1e293b" stroke-width="3"/>
+                                <rect x="14" y="40" width="72" height="46" rx="8" fill="#374151" stroke="#1e293b" stroke-width="4"/>
+                            </svg>
+                        </div>
+                    `;
+                } else {
+                    div.innerHTML = `
+                        <div class="relative w-full h-full">
+                            <svg viewBox="0 0 100 100" class="w-full h-full drop-shadow-md">
+                                <!-- [Lid Interior] 활짝 오픈된 돔형 뚜껑의 양 측면 빨간 융비단 마감 효과 -->
+                                <path d="M 14 38 L 14 18 C 14 18, 20 10, 26 18 L 26 38 Z" fill="#b91c1c" stroke="#1e293b" stroke-width="2"/>
+                                <path d="M 86 38 L 86 18 C 86 18, 80 10, 74 18 L 74 38 Z" fill="#b91c1c" stroke="#1e293b" stroke-width="2"/>
+
+                                <!-- [Open Lid] 열려서 위쪽으로 젖혀진 뚜껑의 상단 나무 구조 -->
+                                <path d="M 14 18 Q 50 -5 86 18 L 86 28 Q 50 8 14 28 Z" fill="#92400e" stroke="#1e293b" stroke-width="3" stroke-linejoin="round"/>
+                                <path d="M 18 18 Q 50 2 82 18 L 82 25 Q 50 11 18 25 Z" fill="#b45309"/>
+                                
+                                <!-- 뚜껑 테두리 금빛 프레임 및 메탈 징 박기 장식 -->
+                                <path d="M 14 28 Q 50 8 86 28" fill="none" stroke="#fbbf24" stroke-width="4" stroke-linecap="round"/>
+                                <circle cx="22" cy="24" r="1.5" fill="#ca8a04"/><circle cx="36" cy="19" r="1.5" fill="#ca8a04"/><circle cx="50" cy="17" r="1.5" fill="#ca8a04"/><circle cx="64" cy="19" r="1.5" fill="#ca8a04"/><circle cx="78" cy="24" r="1.5" fill="#ca8a04"/>
+
+                                <!-- [Overflowing Gold Coins] 상자 위로 수북하게 쏟아져 나온 황금동전 더미 효과 -->
+                                <ellipse cx="50" cy="38" rx="33" ry="11" fill="#eab308" stroke="#ca8a04" stroke-width="1"/>
+                                <!-- 금화 알갱이 입체적 쌓기 -->
+                                <circle cx="30" cy="38" r="6" fill="#facc15" stroke="#ca8a04" stroke-width="1.5"/>
+                                <circle cx="40" cy="35" r="7" fill="#fde047" stroke="#eab308" stroke-width="1.5"/>
+                                <circle cx="50" cy="33" r="8" fill="#fef08a" stroke="#ca8a04" stroke-width="2"/>
+                                <circle cx="60" cy="36" r="7" fill="#fde047" stroke="#eab308" stroke-width="1.5"/>
+                                <circle cx="70" cy="39" r="6" fill="#facc15" stroke="#ca8a04" stroke-width="1.5"/>
+                                <!-- 전방 흘러내리는 추가 동전 배치 -->
+                                <circle cx="26" cy="41" r="5" fill="#eab308" stroke="#ca8a04" stroke-width="1"/>
+                                <circle cx="35" cy="40" r="6" fill="#facc15" stroke="#ca8a04" stroke-width="1.5"/>
+                                <circle cx="45" cy="38" r="7" fill="#fde047" stroke="#ca8a04" stroke-width="1.5"/>
+                                <circle cx="55" cy="38" r="7" fill="#fde047" stroke="#ca8a04" stroke-width="1.5"/>
+                                <circle cx="65" cy="41" r="6" fill="#facc15" stroke="#ca8a04" stroke-width="1.5"/>
+                                <circle cx="74" cy="42" r="5" fill="#eab308" stroke="#ca8a04" stroke-width="1"/>
+
+                                <!-- [Chest Body] 보물상자 전면 나무 몸체 -->
+                                <rect x="14" y="40" width="72" height="46" rx="8" fill="#78350f" stroke="#1e293b" stroke-width="4"/>
+                                <!-- 가로 및 세로 나무 결 음영 분할선 -->
+                                <line x1="28" y1="42" x2="28" y2="86" stroke="#451a03" stroke-width="2.5"/>
+                                <line x1="72" y1="42" x2="72" y2="86" stroke="#451a03" stroke-width="2.5"/>
+
+                                <!-- 좌우 테두리를 둘러싼 Stud 징박힌 금색 플레이트 가드 벨트 -->
+                                <path d="M 14 40 L 26 40 L 26 86 L 14 86 Z" fill="#fbbf24" stroke="#1e293b" stroke-width="2"/>
+                                <path d="M 86 40 L 74 40 L 74 86 L 86 86 Z" fill="#fbbf24" stroke="#1e293b" stroke-width="2"/>
+                                <rect x="26" y="40" width="48" height="6" fill="#fbbf24" stroke="#1e293b" stroke-width="2"/>
+
+                                <!-- 금빛 가드 징 디테일 배치 -->
+                                <circle cx="20" cy="47" r="2.5" fill="#ca8a04"/><circle cx="20" cy="63" r="2.5" fill="#ca8a04"/><circle cx="20" cy="79" r="2.5" fill="#ca8a04"/><circle cx="80" cy="47" r="2.5" fill="#ca8a04"/><circle cx="80" cy="63" r="2.5" fill="#ca8a04"/><circle cx="80" cy="79" r="2.5" fill="#ca8a04"/>
+                                <path d="M 44 34 L 56 34 L 54 56 L 46 56 Z" fill="#facc15" stroke="#1e293b" stroke-width="2"/>
+                                <circle cx="50" cy="52" r="5" fill="#d97706" stroke="#1e293b" stroke-width="2"/>
+                            </svg>
+                            <div class="absolute -top-3 -right-3 text-yellow-400 text-xl star-item"><i class="fa-solid fa-sparkles"></i></div>
+                        </div>
+                    `;
+                }
+                container.appendChild(div);
+            });
+        }
+
+        /**
+         * 로봇을 지정된 왼쪽 외부 대기 라인(Row, Col -0.5)으로 정밀 안착 및 우향 전진 세팅
+         */
+        function positionRobotAtStart() {
+            const robot = document.getElementById('robot');
+            const x = getCoordPercent(-0.5, 'x');
+            const y = getCoordPercent(startRow, 'y');
+
+            // 복귀 시에는 기본적이고 안전한 아케이드 큐빅 베지어로 트랜지션 복원
+            robot.style.transition = "left 0.5s cubic-bezier(0.25, 1, 0.5, 1), top 0.5s cubic-bezier(0.25, 1, 0.5, 1), transform 0.3s ease-in-out";
+            robot.style.left = `calc(${x}% - 28px)`;
+            robot.style.top = `calc(${y}% - 28px)`;
+            currentAngle = 0; // 누적 회전 각도도 출발지로 올 때 0으로 리셋합니다.
+            robot.style.transform = "rotate(0deg)"; // 기본 0도 (Right 방향)
+        }
+
+        /**
+         * @param {number} val
+         * @param {string} axis
+         */
+        function getCoordPercent(val, axis) {
+            if (axis === 'x') {
+                if (val === -0.5) return 6;  // 왼쪽 시작 진입지점
+                if (val === 2.5) return 94;  // 오른쪽 탈출 끝지점
+                
+                // 정수 위치 (0, 1, 2)
+                if (Number.isInteger(val)) {
+                    return colCoords[val];
+                }
+                
+                // 중간 도로 길목 위치 (0.5 단위 연산)
+                const floorIdx = Math.floor(val);
+                const ceilIdx = Math.ceil(val);
+                if (floorIdx >= 0 && ceilIdx < 3) {
+                    return (colCoords[floorIdx] + colCoords[ceilIdx]) / 2;
+                }
+                return 50;
+            } else {
+                // 정수 위치 (0, 1, 2, 3)
+                if (Number.isInteger(val)) {
+                    return rowCoords[val];
+                }
+                
+                // 중간 도로 길목 위치 (0.5 단위 연산)
+                const floorIdx = Math.floor(val);
+                const ceilIdx = Math.ceil(val);
+                if (floorIdx >= 0 && ceilIdx < 4) {
+                    return (rowCoords[floorIdx] + rowCoords[ceilIdx]) / 2;
+                }
+                return 50;
+            }
+        }
+
+        /**
+         * 도구 선택 및 토글 제어 이벤트 핸들러 (동일 버튼 재클릭 시 배치 완료 상태 전환)
+         */
+        function selectTool(toolId) {
+            if (isSimulating) return;
+
+            // [토글 해제 메커니즘] 이미 활성화된 도구를 한 번 더 터치한 경우 (토글 해제!)
+            if (selectedTool === toolId) {
+                selectedTool = null;
+                playTone(523.25, 'sine', 0.1, 0.05); // 도구 해제 알림음
+                
+                // 모든 버튼의 하이라이트 테두리 회수
+                const tools = ['tool-robot', 'tool-fire', 'tool-treasure', 'sticker-blue', 'sticker-green', 'sticker-yellow'];
+                tools.forEach(t => {
+                    const el = document.getElementById(t);
+                    if (el) {
+                        el.classList.remove('scale-105', 'border-yellow-300', 'ring-4', 'ring-indigo-300');
+                    }
+                });
+                
+                // 앵커 링 레이어를 제거하여 도화지처럼 순수하게 복원
+                renderClickAnchors();
+                
+                // 배치가 무사히 완료되었음을 아동의 눈에 각인시키는 축하 멘트 출력
+                document.getElementById('systemMessage').innerHTML = "👍 배치가 완료되었습니다! 이제 상단의 [로봇 출발] 버튼을 눌러 테스트해 보세요!";
+                document.getElementById('systemMessage').className = "font-jua text-xl md:text-2xl text-emerald-600 tracking-wide animate-pulse";
+                return;
+            }
+
+            // 모든 기존 하이라이트 스타일 회수
+            const tools = ['tool-robot', 'tool-fire', 'tool-treasure', 'sticker-blue', 'sticker-green', 'sticker-yellow'];
+            tools.forEach(t => {
+                const el = document.getElementById(t);
+                if (el) {
+                    el.classList.remove('scale-105', 'border-yellow-300', 'ring-4', 'ring-indigo-300');
+                }
+            });
+
+            selectedTool = toolId;
+            playPopSound();
+
+            // 선택된 신규 도구에 쫀득한 링 하이라이트 부여
+            const activeBtn = document.getElementById(toolId);
+            if (activeBtn) {
+                activeBtn.classList.add('scale-105', 'border-yellow-300', 'ring-4', 'ring-indigo-300');
+            }
+
+            // 활성화된 도구 신호에 따라 맵 배치 앵커들을 다시 그려 안내선을 강조
+            renderClickAnchors();
+
+            // 각 도구별 상세 행동 가이드라인 하단 출력
+            if (toolId === 'tool-robot') {
+                document.getElementById('systemMessage').innerText = "🤖 왼쪽 시작 도로 중 하나를 클릭해 로봇의 출발 행 위치를 정해주세요.";
+            } else if (toolId === 'tool-fire') {
+                document.getElementById('systemMessage').innerText = "🔥 지도의 교차로를 클릭해 장애물 불꽃을 세우세요. (다시 누르면 떼어짐)";
+            } else if (toolId === 'tool-treasure') {
+                document.getElementById('systemMessage').innerText = "💎 교차로나 도로 끝부분을 터치하여 보물상자들을 자유롭게 배치하세요. (다시 누르면 떼어짐)";
+            } else {
+                document.getElementById('systemMessage').innerText = "🔵🟢🟡 지도 위 도로 교차로를 클릭해 해당 코딩 스티커를 부착하세요! (다시 누르면 떼어짐)";
+            }
+            document.getElementById('systemMessage').className = "font-jua text-xl md:text-2xl text-slate-600 tracking-wide";
+        }
+
+        /**
+         * 현재 활성화된 배치 도구에 따른 핫스팟 투명 감지 링 렌더링
+         */
+        function renderClickAnchors() {
+            const container = document.getElementById('anchorsLayer');
+            container.innerHTML = '';
+
+            if (isSimulating || !selectedTool) return;
+
+            // 1. [로봇 배치] 도구 핫스팟 (왼쪽 입구 4곳)
+            if (selectedTool === 'tool-robot') {
+                for (let r = 0; r < 4; r++) {
+                    const x = getCoordPercent(-0.5, 'x');
+                    const y = getCoordPercent(r, 'y');
+
+                    const anchor = document.createElement('button');
+                    anchor.className = "absolute rounded-full border-4 border-dashed border-indigo-400 bg-white/70 flex items-center justify-center ghost-anchor z-30 shadow-md pointer-events-auto";
+                    anchor.style.left = `calc(${x}% - 22px)`;
+                    anchor.style.top = `calc(${y}% - 22px)`;
+                    anchor.style.width = "44px";
+                    anchor.style.height = "44px";
+                    anchor.innerHTML = `<i class="fa-solid fa-car-side text-indigo-500 text-sm"></i>`;
+                    
+                    anchor.onclick = () => {
+                        startRow = r;
+                        // 로봇이 새로 배치되는 출발 위치에 보물상자가 이미 있다면 자동으로 수거(제거)하여 동기화
+                        delete treasures[`${r},-0.5`];
+                        playTone(660, 'sine', 0.1);
+                        initMap();
+                    };
+                    container.appendChild(anchor);
+                }
+                return;
+            }
+
+            // 2. [불 배치] 핫스팟 (오직 12개 정수 교차로 영역만 허용)
+            if (selectedTool === 'tool-fire') {
+                for (let r = 0; r < 4; r++) {
+                    for (let c = 0; c < 3; c++) {
+                        const x = getCoordPercent(c, 'x');
+                        const y = getCoordPercent(r, 'y');
+                        const key = `${r},${c}`;
+
+                        const anchor = document.createElement('button');
+                        anchor.className = "absolute rounded-full flex items-center justify-center z-30 transition pointer-events-auto";
+                        anchor.style.left = `calc(${x}% - 24px)`;
+                        anchor.style.top = `calc(${y}% - 24px)`;
+                        anchor.style.width = "48px";
+                        anchor.style.height = "48px";
+                        // 투명 터치 핫스팟 가이드 (마우스 호버 시에만 원형 보더 노출)
+                        anchor.innerHTML = `<div class="w-10 h-10 rounded-full border-4 border-dashed border-transparent hover:border-slate-400/60 transition"></div>`;
+
+                        anchor.onclick = () => {
+                            if (hazards[key]) {
+                                // 이미 불길이 깔려있을 때 한 번 더 클릭하면 삭제 (토글 완벽 적용!)
+                                delete hazards[key];
+                                playTone(440, 'sine', 0.08);
+                            } else {
+                                delete treasures[key]; // 보물과 동시 겹침 차단
+                                delete boardStickers[key]; // 불길을 놓을 때는 코딩 스티커를 자동 삭제하여 겹침 방지
+                                hazards[key] = true;
+                                playTone(660, 'sine', 0.15);
+                            }
+                            initMap();
+                        };
+                        container.appendChild(anchor);
+                    }
+                }
+                return;
+            }
+
+            // 3. [보물 배치] 핫스팟 (12개 교차로 + 좌측 4곳 + 우측 4곳 허용)
+            if (selectedTool === 'tool-treasure') {
+                const list = [];
+                for (let r = 0; r < 4; r++) {
+                    for (let c = 0; c < 3; c++) list.push({ r: r, c: c });
+                }
+                for (let r = 0; r < 4; r++) {
+                    list.push({ r: r, c: -0.5 });
+                    list.push({ r: r, c: 2.5 });
+                }
+
+                list.forEach(pos => {
+                    const key = `${pos.r},${pos.c}`;
+                    const x = getCoordPercent(pos.c, 'x');
+                    const y = getCoordPercent(pos.r, 'y');
+
+                    const anchor = document.createElement('button');
+                    anchor.className = "absolute rounded-full flex items-center justify-center z-30 transition pointer-events-auto";
+                    anchor.style.left = `calc(${x}% - 24px)`;
+                    anchor.style.top = `calc(${y}% - 24px)`;
+                    anchor.style.width = "48px";
+                    anchor.style.height = "48px";
+                    anchor.innerHTML = `<div class="w-10 h-10 rounded-full border-4 border-dashed border-transparent hover:border-slate-400/60 transition"></div>`;
+
+                    anchor.onclick = () => {
+                        if (treasures[key]) {
+                            // 이미 보물이 깔려있을 때 한 번 더 누르면 리셋
+                            delete treasures[key];
+                            playTone(440, 'sine', 0.08);
+                        } else {
+                            // [반영 완료] 로봇이 이미 출발 대기 중인 위치(startRow, -0.5)에는 보물을 놓을 수 없도록 배치 예외 제어!
+                            if (pos.r === startRow && pos.c === -0.5) {
+                                document.getElementById('systemMessage').innerText = "⚠️ 로봇이 출발하는 위치에는 보물을 놓을 수 없어요!";
+                                document.getElementById('systemMessage').className = "font-jua text-xl md:text-2xl text-rose-500 animate-pulse";
+                                playCrashSound();
+                                return;
+                            }
+                            // [겹침 제한 해제 완료] 보물상자와 색상 스티커는 겹칠 수 있으므로 더이상 boardStickers를 지우지 않습니다.
+                            delete hazards[key];
+                            treasures[key] = true;
+                            playTone(783.99, 'sine', 0.15);
+                        }
+                        initMap();
+                    };
+                    container.appendChild(anchor);
+                });
+                return;
+            }
+
+            // 4. [코딩 스티커] 핫스팟 (유연한 예외 및 허용 규칙 적용)
+            if (selectedTool.startsWith('sticker-')) {
+                const type = selectedTool.replace('sticker-', '');
+                
+                // [골드 피드백 반영] 파란색(유턴) 스티커만 5번째 지점(2.5)에 부착할 수 있도록 필터링 처리합니다!
+                // 연두색(우회전) 및 노란색(좌회전) 스티커를 선택했을 때는 5번째 칸이 선택 가이드 영역에서 완벽하게 제외됩니다.
+                const cols = (type === 'blue') ? [0, 1, 2, 2.5] : [0, 1, 2];
+                
+                for (let r = 0; r < 4; r++) {
+                    cols.forEach(c => {
+                        const x = getCoordPercent(c, 'x');
+                        const y = getCoordPercent(r, 'y');
+                        const key = `${r},${c}`;
+
+                        const anchor = document.createElement('button');
+                        anchor.className = "absolute rounded-full flex items-center justify-center z-30 transition pointer-events-auto";
+                        anchor.style.left = `calc(${x}% - 24px)`;
+                        anchor.style.top = `calc(${y}% - 24px)`;
+                        anchor.style.width = "48px";
+                        anchor.style.height = "48px";
+                        anchor.innerHTML = `<div class="w-10 h-10 rounded-full border-4 border-dashed border-transparent hover:border-slate-400/60 transition"></div>`;
+
+                        anchor.onclick = () => {
+                            const exist = boardStickers[key];
+                            
+                            // 이미 그 교차로에 나와 같은 종류의 스티커가 붙은 상태에서 재클릭 시 -> 깔끔하게 삭제!
+                            if (exist === type) {
+                                delete boardStickers[key];
+                                playTone(440, 'sine', 0.08);
+                            } else {
+                                // [수정 반영] 불길이 있는 교차로에만 원천 차단! (보물상자가 위치한 자리에는 스티커를 올릴 수 있게 제한 해제)
+                                if (hazards[key]) {
+                                    document.getElementById('systemMessage').innerText = "⚠️ 불길이 이미 설치된 교차로에는 코딩 스티커를 배치할 수 없어요!";
+                                    document.getElementById('systemMessage').className = "font-jua text-xl md:text-2xl text-rose-500 animate-pulse";
+                                    playCrashSound();
+                                    return;
+                                }
+                                // 다른 색상의 스티커 덮어쓰기 및 새로운 부착
+                                boardStickers[key] = type;
+                                playTone(660, 'sine', 0.1);
+                            }
+                            initMap();
+                        };
+                        container.appendChild(anchor);
+                    });
+                }
+            }
+        }
+
+        /**
+         * 비동기 타이머 도우미 (동작 딜레이 관리)
+         */
+        const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+        /**
+         * [로봇 출발] 버튼 클릭 시 설계된 알고리즘 주행 연산 가동 (3열 구조 경계 연산 및 다중 보물 획득 제어 최적화)
+         */
+        async function startSimulation() {
+            if (isSimulating) return;
+
+            // 보물이 하나도 깔려있지 않은 경우 경고
+            if (Object.keys(treasures).length === 0) {
+                document.getElementById('systemMessage').innerText = "⚠️ 보물상자(💎)를 지도 위에 먼저 배치하고 출발시켜 주세요!";
+                document.getElementById('systemMessage').className = "font-jua text-xl md:text-2xl text-rose-500 animate-pulse";
+                playCrashSound();
+                return;
+            }
+
+            isSimulating = true;
+            
+            // 모든 도구 조작 링 회수 및 비활성화 (전면 대기 상태 전환)
+            selectTool(null);
+
+            const robot = document.getElementById('robot');
+            positionRobotAtStart();
+
+            // 다중 보물 실시간 수거 상태 초기 복사
+            activeTreasures = { ...treasures };
+            const totalTreasuresCount = Object.keys(treasures).length;
+            let collectedCount = 0;
+
+            // 최초 closed 보물 상태 보장
+            renderTreasures(activeTreasures);
+
+            document.getElementById('systemMessage').innerHTML = "<span class='text-indigo-600 animate-pulse'>주행 테스트 개시! 설계된 코딩 규칙을 한 칸씩 추적합니다... 🚀</span>";
+            document.getElementById('systemMessage').className = "font-jua text-xl md:text-2xl tracking-wide";
+
+            await sleep(600);
+
+            // 주행 상태 좌표 변수 초기화 (float 및 half-step 지원)
+            let currR = startRow;
+            let currC = -0.5; // 왼쪽 출발 도로 바깥에서 진입
+            let currentDir = "Right"; // 첫 전진은 무조건 우측 직진
+            currentAngle = 0; // 누적 방향 각도 초기화
+
+            const maxHalfSteps = 50; // 무한 루프 방지 임계선
+            let steps = 0;
+
+            while (steps < maxHalfSteps) {
+                steps++;
+
+                // 이전 로봇 위치 좌표 보존 (물리적 주행 속도 비례 연산용)
+                const prevR = currR;
+                const prevC = currC;
+
+                // [주행 속도 조율 패치 완벽 교정]
+                // 수직(Up/Down) 이동은 1.0 간격으로, 수평(Left/Right) 이동은 노드 기반(colNodes)으로 탐색하여
+                // 어떠한 경우에도 중간 지점에 멈추지 않고 오직 노드에서 노드로 무조건 한 번에 이동하도록 수정되었습니다!
+                if (currentDir === 'Up') {
+                    currR -= 1;
+                } else if (currentDir === 'Down') {
+                    currR += 1;
+                } else if (currentDir === 'Right') {
+                    const idx = colNodes.indexOf(currC);
+                    if (idx !== -1 && idx < colNodes.length - 1) {
+                        currC = colNodes[idx + 1];
+                    } else {
+                        currC += 0.5; // fallback 예외안전선
+                    }
+                } else if (currentDir === 'Left') {
+                    const idx = colNodes.indexOf(currC);
+                    if (idx !== -1 && idx > 0) {
+                        currC = colNodes[idx - 1];
+                    } else {
+                        currC -= 0.5; // fallback 예외안전선
+                    }
+                }
+
+                // 위치 정보 key 생성
+                const key = `${currR},${currC}`;
+
+                // [v1.06 패치: 등속 주행 물리 엔진 연산]
+                // 이전 좌표와 다음 이동 좌표 사이의 물리적 거리(%) 차이를 구한 다음,
+                // 이에 비례하도록 CSS transition-duration을 완벽하게 동적 보정하여
+                // 좁은 구간이든 넓은 구간이든 속도가 늘어지거나 급감하는 현상을 원천 방지하여 동일한 속도로 전진하게 만듭니다.
+                const percentX_prev = getCoordPercent(prevC, 'x');
+                const percentY_prev = getCoordPercent(prevR, 'y');
+                const percentX_next = getCoordPercent(currC, 'x');
+                const percentY_next = getCoordPercent(currR, 'y');
+
+                const travelDistance = Math.sqrt(Math.pow(percentX_next - percentX_prev, 2) + Math.pow(percentY_next - percentY_prev, 2));
+                
+                // 표준 등속도 기준: 격자 교차로간 25% 거리를 0.4초 동안 이동하도록 설정
+                const finalDuration = (travelDistance / 25) * 0.4;
+                const clampedDuration = Math.max(0.2, Math.min(0.5, finalDuration)); // 예외 범위 보호 장치
+
+                // 등속 주행 트랜지션 실시간 동적 주입
+                robot.style.transition = `left ${clampedDuration}s ease-in-out, top ${clampedDuration}s ease-in-out, transform 0.3s ease-in-out`;
+
+                // 2. 화면 내 로봇 좌표 위치 부드럽게 대칭 이동
+                robot.style.left = `calc(${percentX_next}% - 28px)`;
+                robot.style.top = `calc(${percentY_next}% - 28px)`;
+
+                // 트랜지션 작동 소요 시간만큼 완벽하게 동기화 대기 (정지 후 미세 지연 정체 완벽 차단)
+                await sleep(clampedDuration * 1000);
+
+                // 개별 보물상자 실시간 획득 감지 및 체크
+                if (activeTreasures[key]) {
+                    delete activeTreasures[key]; // 수거 처리
+                    collectedCount++;
+                    
+                    // 기분 좋은 맑은 포장/수집 소리 출력
+                    playTone(880, 'sine', 0.15, 0.15); 
+                    
+                    // 현재 남은 활성 보물만 재렌더링 (획득한 것은 열린 보물상자로 전환)
+                    renderTreasures(activeTreasures); 
+                    
+                    // 특수학급 아이들을 위해 현재 획득 상태 전광판 실시간 갱신
+                    document.getElementById('systemMessage').innerHTML = `⭐ 보물 상자를 열었습니다! (${collectedCount} / ${totalTreasuresCount}개 획득)`;
+                    document.getElementById('systemMessage').className = "font-jua text-2xl text-indigo-600 tracking-wide animate-bounce";
+                    
+                    await sleep(350);
+                }
+
+                // 목적지 보물 상자를 전부 안전하게 모았을 때 최종 대성공 선언! (모두 획득 성공 조건 적용)
+                if (Object.keys(activeTreasures).length === 0) {
+                    playSuccessSound();
+                    document.getElementById('systemMessage').innerHTML = "🎉 대성공! 모든 보물을 안전하게 전부 획득했습니다!";
+                    document.getElementById('systemMessage').className = "font-jua text-2xl text-emerald-500 tracking-wide";
+                    
+                    await sleep(400);
+                    document.getElementById('successModal').classList.remove('hidden');
+                    isSimulating = false;
+                    return;
+                }
+
+                // 4. 지옥 불길 충돌 체크
+                if (hazards[key]) {
+                    playExplosionSound();
+                    document.getElementById('systemMessage').innerHTML = "💥 불이야! 뜨겁게 타오르는 불길과 조우하여 로봇 부품이 고장 났습니다. 지도를 재설계해 주세요!";
+                    document.getElementById('systemMessage').className = "font-jua text-xl md:text-2xl text-rose-500 tracking-wide";
+                    isSimulating = false;
+                    return;
+                }
+
+                // 5. 도로 이탈 벽 충돌 체크 (3열 경계인 2.5로 제한 상향 조정)
+                if (currR < 0 || currR > 3 || currC < -0.5 || currC > 2.5) {
+                    playCrashSound();
+                    document.getElementById('systemMessage').innerHTML = "🚧 탈선! 로봇이 도로 밖 성벽과 쿵 부딪혔습니다. 교차로 스티커를 다시 점검해 주세요!";
+                    document.getElementById('systemMessage').className = "font-jua text-xl md:text-2xl text-rose-500 tracking-wide";
+                    isSimulating = false;
+                    return;
+                }
+
+                // 6. 정확한 정수형 '교차로' 또는 오른쪽 끝(2.5, 즉 5번째 포인트)에 도달했을 때 부착된 코딩 스티커를 읽고 90도/180도 회전 지시 처리
+                if (Number.isInteger(currR) && (Number.isInteger(currC) || currC === 2.5)) {
+                    const sticker = boardStickers[key];
+                    if (sticker) {
+                        if (sticker === 'blue') {
+                            currentDir = uTurnMap[currentDir];
+                            currentAngle += 180; // 유턴: 180도 추가
+                        } else if (sticker === 'green') {
+                            currentDir = turnRightMap[currentDir];
+                            currentAngle += 90;  // 우회전: 시계방향 (+90도)
+                        } else if (sticker === 'yellow') {
+                            currentDir = turnLeftMap[currentDir];
+                            currentAngle -= 90;  // 좌회전: 반시계방향 (-90도)
+                        }
+
+                        // 누적된 각도를 적용하여 270도 공전 없이 최단 경로로 회전합니다.
+                        robot.style.transform = `rotate(${currentAngle}deg)`;
+                        await sleep(400);
+                    }
+                }
+            }
+
+            // 배터리 방전 타임아웃
+            playCrashSound();
+            document.getElementById('systemMessage').innerText = "⌛ 무한 루프 감지! 로봇의 에너지가 모두 닳아 정지했습니다.";
+            isSimulating = false;
+        }
+
+        /**
+         * 주행 오류 후 복귀용 로봇 리셋 처리 (열렸던 보물상자 일제히 복원)
+         */
+        function resetSimulation() {
+            if (isSimulating) return; // 주행 도중 강제 중단 방지
+            positionRobotAtStart();
+            initMap(); // 전체 상태 동기화 재렌더링으로 열린 보물상자들 일제히 closed 복원!
+            document.getElementById('systemMessage').innerText = "로봇이 시작 위치로 무사히 복귀했습니다. 코딩을 계속해 보세요!";
+            document.getElementById('systemMessage').className = "font-jua text-xl md:text-2xl text-slate-500 tracking-wide";
+        }
+
+        /**
+         * 지도 내의 모든 스티커, 장애물, 보물을 통째로 들어내어 하얀 도화지로 되돌리기
+         */
+        function clearEverything() {
+            if (isSimulating) return;
+
+            boardStickers = {};
+            hazards = {};
+            treasures = {};
+            startRow = 3; // 4행 시작 기본값 초기화
+
+            playTone(220, 'sine', 0.2);
+            initMap();
+
+            document.getElementById('systemMessage').innerText = "도면이 하얗게 비워졌습니다! 자유롭게 미션을 제작해 보세요.";
+            document.getElementById('systemMessage').className = "font-jua text-xl md:text-2xl text-slate-500 tracking-wide";
+        }
+
+        /**
+         * 모달 창 닫기
+         */
+        function closeSuccessModal() {
+            document.getElementById('successModal').classList.add('hidden');
+            resetSimulation();
+        }
+    </script>
+</body>
+</html>

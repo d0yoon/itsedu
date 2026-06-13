@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>초코칩 포장 마법 상점 - 실시간 게임기 v1.25</title>
+    <!-- 아기자기한 교육용 특화 글꼴 및 아이콘 라이브러리 로드 -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <!-- 테일윈드 CSS 라이브러리 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 아기자기한 폭죽 효과 라이브러리 로드 -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        jua: ['Jua', 'sans-serif'],
+                        noto: ['Noto Sans KR', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            background-color: #fcf9f5;
+            user-select: none;
+        }
+
+        /* [크기 대폭 확대] 시인성 극대화를 위한 초코칩 쿠키 스타일 */
+        .dot {
+            width: 28px;
+            height: 28px;
+            background-color: #e2b381; /* 골드 쿠키 브라운 */
+            border-radius: 50%;
+            position: relative;
+            box-shadow: inset -2.5px -2.5px 0px #c59462, 0.5px 1.5px 3px rgba(0,0,0,0.18);
+            border: none;
+            transition: transform 0.2s ease;
+        }
+
+        /* 디폴트 초코칩 콕콕 박기 */
+        .dot::before {
+            content: '';
+            position: absolute;
+            width: 4.5px;
+            height: 4.5px;
+            background-color: #503117; /* 다크 초콜릿 */
+            border-radius: 50%;
+            top: 5px;
+            left: 7px;
+            box-shadow: 13px 2.5px 0 #503117, 3px 15px 0 #503117, 13px 13px 0 #41240c;
+        }
+
+        /* [포장 완료(담음) 시 개별 쿠키 투명 비닐 랩핑 효과 크기 최적화] */
+        .bag-card.packed .dot::after {
+            content: '';
+            position: absolute;
+            top: -6px;
+            left: -6px;
+            width: 40px; /* 쿠키 크기에 맞춰 확대 */
+            height: 40px;
+            border: 1.5px solid rgba(255, 255, 255, 0.95);
+            /* 반짝이는 투명 셀로판 비닐 질감 렌더링 */
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.6) 0%, rgba(255, 255, 255, 0) 50%, rgba(255, 255, 255, 0.45) 100%);
+            border-radius: 6px; /* 귀여운 사각형 개별 포장지 */
+            box-shadow: 0 2px 4px rgba(0,0,0,0.15), inset 0 0 4px rgba(255,255,255,0.7);
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        /* 활성화 상태일 때 쿠키 통통 튀는 애니메이션 */
+        .bag-card.packed .dot {
+            transform: scale(1.15);
+            animation: bounce 0.5s ease infinite alternate;
+        }
+
+        @keyframes bounce {
+            0% { transform: translateY(0) scale(1.15); }
+            100% { transform: translateY(-3px) scale(1.15); }
+        }
+
+        /* 가방 카드 트랜지션 효과 */
+        .bag-card {
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+
+        .bag-card.packed {
+            border-color: #2ecc71 !important;
+            background-color: #e8f8f0 !important;
+            transform: translateY(-4px);
+            box-shadow: 0 6px 14px rgba(46, 204, 113, 0.2);
+        }
+
+        .bag-svg {
+            transition: transform 0.3s ease;
+        }
+
+        .bag-card.packed .bag-svg {
+            transform: scale(1.08);
+        }
+
+        /* 부드러운 토스트 메시지 애니메이션 */
+        .toast-animation {
+            animation: slideDownFade 0.3s ease-out forwards;
+        }
+
+        @keyframes slideDownFade {
+            0% { transform: translateY(-20px); opacity: 0; }
+            100% { transform: translateY(0); opacity: 1; }
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-center items-center p-2 bg-[#fcf9f5]">
+
+    <!-- 메인 컨테이너 (태블릿 최적화: 강제 높이 제한 해제 및 스크롤 세이프 백업 설계) -->
+    <div class="w-full max-w-[1020px] min-h-[90vh] md:min-h-[520px] bg-white rounded-[24px] border-4 border-[#eedecc] shadow-xl overflow-y-auto p-4 sm:p-6 flex flex-col justify-between gap-5 relative">
+        
+        <!-- 상단 헤더 영역 -->
+        <div class="border-b-2 border-dashed border-[#eedecc] pb-3 flex flex-col md:flex-row justify-between items-center gap-3">
+            <div class="flex items-center gap-2">
+                <span class="text-xl text-[#ff7675]"><i class="fa-solid fa-cookie-bite"></i></span>
+                <h1 class="font-jua text-xl md:text-2xl text-[#4a3e3d]">달콤한 이진수 마법 상점 <span class="text-[#ff7675]">실시간 시뮬레이터</span></h1>
+            </div>
+            
+            <!-- 컨트롤 패널 -->
+            <div class="flex items-center gap-1.5 flex-wrap justify-center">
+                <div class="flex items-center gap-1.5 bg-[#ffeaa7] border-2 border-[#f1c40f] px-3.5 py-1.5 rounded-xl shadow-sm">
+                    <span class="font-jua text-sm md:text-base text-[#7f5f00]">🎯 주문:</span>
+                    <select id="targetSelect" class="font-jua text-sm md:text-base text-[#4a3e3d] bg-white border border-[#e67e22] rounded-lg px-2 py-0.5 cursor-pointer focus:outline-none" onchange="resetSimulator()">
+                        <option value="1">초코칩 1개</option>
+                        <option value="2">초코칩 2개</option>
+                        <option value="3">초코칩 3개</option>
+                        <option value="4">초코칩 4개</option>
+                        <option value="5" selected>초코칩 5개</option>
+                        <option value="6">초코칩 6개</option>
+                        <option value="7">초코칩 7개</option>
+                        <option value="8">초코칩 8개</option>
+                        <option value="9">초코칩 9개</option>
+                        <option value="10">초코칩 10개</option>
+                        <option value="11">초코칩 11개</option>
+                        <option value="12">초코칩 12개</option>
+                        <option value="13">초코칩 13개</option>
+                        <option value="14">초코칩 14개</option>
+                        <option value="15">초코칩 15개</option>
+                    </select>
+                    <button onclick="resetSimulator()" class="bg-[#e67e22] hover:bg-[#d35400] text-white px-3.5 py-1.5 rounded-xl text-xs md:text-sm font-bold transition duration-200">
+                        <i class="fa-solid fa-rotate-right"></i> 다시 하기
+                    </button>
+                </div>
+
+                <!-- 상단 포장 완료 버튼 -->
+                <button onclick="checkPackingResult()" class="bg-[#2ecc71] hover:bg-[#27ae60] active:translate-y-0.5 text-white font-jua text-sm md:text-base px-4 py-2 rounded-xl border-2 border-slate-800 transition shadow-md flex items-center justify-center gap-1.5">
+                    <i class="fa-solid fa-gift"></i> 포장 완료 (확인하기)
+                </button>
+            </div>
+        </div>
+
+        <!-- [v1.25 개편] 고정식 안내 배너 박스를 삭제하여 세로 여백 및 짤림 완벽 최적화 -->
+
+        <!-- 메인 게임 영역 (태블릿 가로/세로 매끄러운 배치를 위해 그리드 최적화) -->
+        <div class="grid grid-cols-1 md:grid-cols-12 gap-4 items-stretch my-auto">
+            
+            <!-- 좌측 영역: 8개 봉투 (이미지 및 크기 세부 스케일링) -->
+            <div class="md:col-span-5 flex flex-col">
+                <div class="bag-card bg-[#fffdf9] border-2 border-[#ebdcd0] rounded-2xl p-4 text-center cursor-pointer flex flex-col justify-between items-center h-full min-h-[190px] sm:min-h-[220px]" id="bag8" onclick="toggleBag(8)">
+                    <div class="w-full flex justify-center items-center relative min-h-[90px] sm:min-h-[110px]">
+                        <!-- Pink Flower Bag SVG (max-width 반응형 최적화) -->
+                        <svg id="svg8" viewBox="0 0 200 210" class="bag-svg w-full max-w-[100px] sm:max-w-[115px] md:max-w-[130px] h-auto block">
+                            <path d="M35 50 L165 50 L180 190 C180 200, 20 200, 20 190 Z" fill="#ffa2b6" stroke="#b86173" stroke-width="3"/>
+                            <path d="M35 50 L165 50 L155 25 L45 25 Z" fill="#ff8da5" stroke="#b86173" stroke-width="3" stroke-linejoin="round"/>
+                            <!-- 꽃무늬 디자인 -->
+                            <g fill="#fff" opacity="0.45">
+                                <circle cx="50" cy="80" r="7"/><circle cx="44" cy="74" r="5"/><circle cx="56" cy="74" r="5"/><circle cx="44" cy="86" r="5"/><circle cx="56" cy="86" r="5"/><circle cx="50" cy="80" r="3" fill="#ffa2b6"/>
+                                <circle cx="150" cy="95" r="7"/><circle cx="144" cy="89" r="5"/><circle cx="156" cy="89" r="5"/><circle cx="144" cy="101" r="5"/><circle cx="156" cy="101" r="5"/><circle cx="150" cy="95" r="3" fill="#ffa2b6"/>
+                                <circle cx="60" cy="150" r="7"/><circle cx="54" cy="144" r="5"/><circle cx="66" cy="144" r="5"/><circle cx="54" cy="156" r="5"/><circle cx="66" cy="156" r="5"/><circle cx="60" cy="150" r="3" fill="#ffa2b6"/>
+                                <circle cx="140" cy="155" r="7"/><circle cx="134" cy="149" r="5"/><circle cx="146" cy="149" r="5"/><circle cx="134" cy="161" r="5"/><circle cx="146" cy="161" r="5"/><circle cx="140" cy="155" r="3" fill="#ffa2b6"/>
+                            </g>
+                            <!-- 상단 흰 원형 하트 실링 -->
+                            <circle cx="100" cy="38" r="14" fill="#fff" stroke="#ff7675" stroke-width="2"/>
+                            <path d="M100 44 C95 39, 91 35, 91 31 C91 27, 95 24, 100 29 C105 24, 109 27, 109 31 C109 35, 105 39, 100 44 Z" fill="#ff7675"/>
+                            <!-- 빨간 리본 및 쿠키 봉인 씰 -->
+                            <path d="M135 48 L142 95 L150 92 L142 48 Z" fill="#d63031"/>
+                            <path d="M140 48 L150 92 L158 89 L148 48 Z" fill="#b31d1d"/>
+                            <circle cx="146" cy="82" r="15" fill="#bd9365" stroke="#875d31" stroke-width="2"/>
+                            <circle cx="146" cy="82" r="12" fill="none" stroke="#875d31" stroke-width="1.5" stroke-dasharray="3,3"/>
+                            <circle cx="142" cy="78" r="1.5" fill="#503117"/><circle cx="150" cy="78" r="1.5" fill="#503117"/><circle cx="143" cy="86" r="1.5" fill="#503117"/><circle cx="149" cy="85" r="1.5" fill="#503117"/>
+                            <!-- 표정 -->
+                            <circle cx="80" cy="125" r="9" fill="#000"/><circle cx="77" cy="122" r="2.5" fill="#fff"/>
+                            <circle cx="120" cy="125" r="9" fill="#000"/><circle cx="117" cy="122" r="2.5" fill="#fff"/>
+                            <ellipse cx="65" cy="133" rx="10" ry="5" fill="#ff7a91" opacity="0.6"/>
+                            <ellipse cx="135" cy="133" rx="10" ry="5" fill="#ff7a91" opacity="0.6"/>
+                            <path d="M92 135 Q100 145 108 135" fill="none" stroke="#000" stroke-width="3" stroke-linecap="round"/>
+                        </svg>
+                    </div>
+                    <!-- 초코칩 쿠키 위치 (대형 쿠키 도트 배치) -->
+                    <div class="flex flex-wrap justify-center items-center content-center gap-2 min-h-[34px] my-1.5">
+                        <div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div>
+                        <div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div>
+                    </div>
+                    
+                    <!-- 이진수 카드와 라벨 수평 통합 배치 -->
+                    <div class="flex items-center justify-center gap-2 w-full bg-[#f5efe6] px-4 py-1.5 rounded-xl border border-[#ebdcd0] shadow-inner">
+                        <span class="font-jua text-lg md:text-xl text-[#4a3e3d] whitespace-nowrap">8개 봉투 :</span>
+                        <span class="font-jua text-2xl md:text-3xl text-[#94a3b8] transition-all duration-300 leading-none" id="indicator8">0</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 우측 영역: 4개, 2개, 1개 봉투 가득 채운 입체 구성 -->
+            <div class="md:col-span-7 flex flex-col gap-3">
+                
+                <!-- 4개 봉투 (가로형 가득 찬 배치) -->
+                <div class="bag-card bg-[#fffdf9] border-2 border-[#ebdcd0] rounded-2xl p-3 text-center cursor-pointer flex flex-row justify-around items-center min-h-[75px] sm:min-h-[85px]" id="bag4" onclick="toggleBag(4)">
+                    <div class="flex flex-col items-center w-[45%]">
+                        <div class="w-full flex justify-center items-center relative min-h-[75px] sm:min-h-[90px]">
+                            <!-- Tan Snowflake Bag SVG -->
+                            <svg id="svg4" viewBox="0 0 200 210" class="bag-svg w-full max-w-[85px] sm:max-w-[95px] md:max-w-[110px] h-auto block">
+                                <path d="M35 50 L165 50 L180 190 C180 200, 20 200, 20 190 Z" fill="#e5c298" stroke="#a67c52" stroke-width="3"/>
+                                <path d="M35 50 L165 50 L155 25 L45 25 Z" fill="#dfba8c" stroke="#a67c52" stroke-width="3" stroke-linejoin="round"/>
+                                <g stroke="#fff" stroke-width="2" opacity="0.55">
+                                    <path d="M45 80 L61 96 M61 80 L45 96 M53 76 L53 100 M41 88 L65 88"/>
+                                    <path d="M140 145 L156 161 M156 145 L140 161 M148 141 L148 165 M136 153 L160 153"/>
+                                </g>
+                                <path d="M140 45 Q148 70 146 95" fill="none" stroke="#704724" stroke-width="2.5"/>
+                                <path d="M144 45 Q152 70 150 95" fill="none" stroke="#704724" stroke-width="2.5"/>
+                                <circle cx="146" cy="82" r="15" fill="#bd9365" stroke="#875d31" stroke-width="2"/>
+                                <circle cx="146" cy="82" r="12" fill="none" stroke="#875d31" stroke-width="1.5" stroke-dasharray="3,3"/>
+                                <circle cx="142" cy="78" r="1.5" fill="#503117"/><circle cx="150" cy="78" r="1.5" fill="#503117"/><circle cx="143" cy="86" r="1.5" fill="#503117"/><circle cx="149" cy="85" r="1.5" fill="#503117"/>
+                                <circle cx="80" cy="125" r="9" fill="#000"/><circle cx="77" cy="122" r="2.5" fill="#fff"/>
+                                <circle cx="120" cy="125" r="9" fill="#000"/><circle cx="117" cy="122" r="2.5" fill="#fff"/>
+                                <ellipse cx="65" cy="133" rx="10" ry="5" fill="#ff7a91" opacity="0.6"/>
+                                <ellipse cx="135" cy="133" rx="10" ry="5" fill="#ff7a91" opacity="0.6"/>
+                                <path d="M92 135 Q100 145 108 135" fill="none" stroke="#000" stroke-width="3" stroke-linecap="round"/>
+                            </svg>
+                        </div>
+                        
+                        <!-- 이진수 카드와 라벨 수평 통합 배치 -->
+                        <div class="flex items-center justify-center gap-2 mt-2 bg-[#f5efe6] px-3 py-1.5 rounded-xl border border-[#ebdcd0] w-full shadow-inner">
+                            <span class="font-jua text-lg md:text-xl text-[#4a3e3d] whitespace-nowrap">4개 봉투 :</span>
+                            <span class="font-jua text-2xl md:text-3xl text-[#94a3b8] transition-all duration-300 leading-none" id="indicator4">0</span>
+                        </div>
+                    </div>
+                    
+                    <div class="flex flex-col justify-center items-center w-[50%]">
+                        <div class="flex flex-wrap justify-center items-center gap-2 min-h-[34px] my-2">
+                            <div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2개와 1개 봉투 (하단 가득 찬 레이아웃 피팅) -->
+                <div class="grid grid-cols-2 gap-3">
+                    <!-- 2개 봉투 -->
+                    <div class="bag-card bg-[#fffdf9] border-2 border-[#ebdcd0] rounded-2xl p-3 text-center cursor-pointer flex flex-col justify-between items-center min-h-[115px] sm:min-h-[135px]" id="bag2" onclick="toggleBag(2)">
+                        <div class="w-full flex justify-center items-center relative min-h-[55px] sm:min-h-[65px]">
+                            <!-- Green Acorn Bag SVG -->
+                            <svg id="svg2" viewBox="0 0 200 210" class="bag-svg w-full max-w-[70px] sm:max-w-[75px] md:max-w-[85px] h-auto block">
+                                <path d="M35 50 L165 50 L180 190 C180 200, 20 200, 20 190 Z" fill="#8cb66c" stroke="#5d823e" stroke-width="3"/>
+                                <path d="M35 50 L165 50 L155 25 L45 25 Z" fill="#7fa660" stroke="#5d823e" stroke-width="3" stroke-linejoin="round"/>
+                                <g fill="#5d4220" opacity="0.25">
+                                    <path d="M45 80 C45 88, 53 88, 53 80 Z"/> <path d="M43 78 L55 78 L52 74 L46 74 Z"/>
+                                    <path d="M145 95 C145 103, 153 103, 153 95 Z"/> <path d="M143 93 L155 93 L152 89 L146 89 Z"/>
+                                    <path d="M55 145 C55 153, 63 153, 63 145 Z"/> <path d="M53 143 L65 143 L62 139 L56 139 Z"/>
+                                </g>
+                                <path d="M138 48 L142 95 L148 95 L144 48 Z" fill="#3a5f25"/>
+                                <path d="M144 48 L148 95 L154 95 L150 48 Z" fill="#2d4a1c"/>
+                                <circle cx="146" cy="82" r="15" fill="#875d31" stroke="#5d4220" stroke-width="2"/>
+                                <path d="M141 82 C141 89, 151 89, 151 82 Z" fill="#ffb07c"/>
+                                <path d="M139 80 L153 80 C151 76, 141 76, 139 80 Z" fill="#5d4220"/>
+                                <circle cx="80" cy="125" r="9" fill="#000"/><circle cx="77" cy="122" r="2.5" fill="#fff"/>
+                                <circle cx="120" cy="125" r="9" fill="#000"/><circle cx="117" cy="122" r="2.5" fill="#fff"/>
+                                <ellipse cx="65" cy="133" rx="10" ry="5" fill="#ff7a91" opacity="0.6"/>
+                                <ellipse cx="135" cy="133" rx="10" ry="5" fill="#ff7a91" opacity="0.6"/>
+                                <path d="M92 135 Q100 145 108 135" fill="none" stroke="#000" stroke-width="3" stroke-linecap="round"/>
+                            </svg>
+                        </div>
+                        <div class="flex flex-wrap justify-center items-center gap-2 min-h-[34px] my-1">
+                            <div class="dot"></div><div class="dot"></div>
+                        </div>
+                        
+                        <div class="flex items-center justify-center gap-2 mt-1.5 bg-[#f5efe6] px-3 py-1.5 rounded-xl border border-[#ebdcd0] w-full shadow-inner">
+                            <span class="font-jua text-lg md:text-xl text-[#4a3e3d] whitespace-nowrap">2개 봉투 :</span>
+                            <span class="font-jua text-2xl md:text-3xl text-[#94a3b8] transition-all duration-300 leading-none" id="indicator2">0</span>
+                        </div>
+                    </div>
+
+                    <!-- 1개 봉투 -->
+                    <div class="bag-card bg-[#fffdf9] border-2 border-[#ebdcd0] rounded-2xl p-3 text-center cursor-pointer flex flex-col justify-between items-center min-h-[115px] sm:min-h-[135px]" id="bag1" onclick="toggleBag(1)">
+                        <div class="w-full flex justify-center items-center relative min-h-[55px] sm:min-h-[65px]">
+                            <!-- Mint Gift Bag SVG -->
+                            <svg id="svg1" viewBox="0 0 200 210" class="bag-svg w-full max-w-[70px] sm:max-w-[75px] md:max-w-[85px] h-auto block">
+                                <path d="M35 50 L165 50 L180 190 C180 200, 20 200, 20 190 Z" fill="#9cd9c3" stroke="#68b298" stroke-width="3"/>
+                                <path d="M35 50 L165 50 L155 25 L45 25 Z" fill="#88cca8" stroke="#68b298" stroke-width="3" stroke-linejoin="round"/>
+                                <g stroke="#fff" stroke-width="1.5" opacity="0.6">
+                                    <path d="M45 80 L55 90 M55 80 L45 90 M50 76 L50 94 M41 85 L59 85"/>
+                                    <path d="M150 150 L160 160 M160 150 L150 160 M155 146 L155 164 M146 155 L164 155"/>
+                                </g>
+                                <rect x="21" y="95" width="158" height="28" fill="#52997f"/>
+                                <text x="100" y="115" fill="#fff" font-family="Jua" font-size="18" text-anchor="middle" letter-spacing="1.5">GIFT</text>
+                                <circle cx="80" cy="142" r="9" fill="#000"/><circle cx="77" cy="139" r="2.5" fill="#fff"/>
+                                <circle cx="120" cy="142" r="9" fill="#000"/><circle cx="117" cy="139" r="2.5" fill="#fff"/>
+                                <ellipse cx="65" cy="148" rx="10" ry="5" fill="#ff7a91" opacity="0.6"/>
+                                <ellipse cx="135" cy="148" rx="10" ry="5" fill="#ff7a91" opacity="0.6"/>
+                                <path d="M92 150 Q100 160 108 150" fill="none" stroke="#000" stroke-width="3" stroke-linecap="round"/>
+                            </svg>
+                        </div>
+                        <div class="flex flex-wrap justify-center items-center gap-2 min-h-[34px] my-1">
+                            <div class="dot"></div>
+                        </div>
+                        
+                        <div class="flex items-center justify-center gap-2 mt-1.5 bg-[#f5efe6] px-3 py-1.5 rounded-xl border border-[#ebdcd0] w-full shadow-inner">
+                            <span class="font-jua text-lg md:text-xl text-[#4a3e3d] whitespace-nowrap">1개 봉투 :</span>
+                            <span class="font-jua text-2xl md:text-3xl text-[#94a3b8] transition-all duration-300 leading-none" id="indicator1">0</span>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- 하단 잔잔한 가이드 라인 및 버전 표시 -->
+        <div class="border-t-2 border-dashed border-[#eedecc] pt-1 flex justify-between items-center px-4 text-[11px] text-[#a89a93] font-bold">
+            <span>이진수 초코칩 포장 마법 상점 - 깨비 교육과정 재구성 모델</span>
+            <span class="bg-[#eedecc] px-2 py-0.5 rounded-full text-[#7f6f67]">v1.25</span>
+        </div>
+
+        <!-- [v1.25 신규] 알림용 플로팅 토스트 컨테이너 -->
+        <div id="toastContainer" class="absolute top-16 left-1/2 -translate-x-1/2 z-40 w-11/12 max-w-md pointer-events-none flex flex-col items-center gap-2"></div>
+
+    </div>
+
+    <!-- 대성공 이진수 변환 해독기 대형 팝업 모달창 -->
+    <div id="successModal" class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 hidden opacity-0 transition-opacity duration-300">
+        <div class="bg-white rounded-[32px] border-8 border-[#ebdcd0] max-w-lg w-11/12 p-6 md:p-8 shadow-2xl relative transform scale-90 transition-transform duration-300 flex flex-col items-center">
+            
+            <div class="text-5xl md:text-6xl mb-3 animate-bounce">🎁</div>
+            <h2 class="font-jua text-3xl md:text-4xl text-[#ff7675] text-center mb-1">🎉 포장 성공! 🎉</h2>
+            <p class="font-jua text-base md:text-lg text-[#7f5f00] bg-[#ffeaa7] px-4 py-1.5 rounded-full border border-[#f1c40f] mb-6 text-center leading-relaxed">
+                주문한 초코칩 <span id="popupTarget" class="text-red-500 font-bold font-jua text-2xl md:text-3xl mx-1 underline decoration-wavy">0</span>개를 모두 완벽하게 포장했어요!
+            </p>
+
+            <div class="flex justify-center items-center gap-3 w-full mb-6">
+                <div class="flex flex-col items-center gap-1.5 flex-1">
+                    <span class="font-jua text-[11px] md:text-xs text-[#a89a93]">8개 봉투</span>
+                    <div id="bit8" class="w-14 h-14 md:w-16 md:h-16 flex items-center justify-center font-jua text-3xl md:text-4xl rounded-2xl transition-all shadow-md">0</div>
+                </div>
+                <div class="flex flex-col items-center gap-1.5 flex-1">
+                    <span class="font-jua text-[11px] md:text-xs text-[#a89a93]">4개 봉투</span>
+                    <div id="bit4" class="w-14 h-14 md:w-16 md:h-16 flex items-center justify-center font-jua text-3xl md:text-4xl rounded-2xl transition-all shadow-md">0</div>
+                </div>
+                <div class="flex flex-col items-center gap-1.5 flex-1">
+                    <span class="font-jua text-[11px] md:text-xs text-[#a89a93]">2개 봉투</span>
+                    <div id="bit2" class="w-14 h-14 md:w-16 md:h-16 flex items-center justify-center font-jua text-3xl md:text-4xl rounded-2xl transition-all shadow-md">0</div>
+                </div>
+                <div class="flex flex-col items-center gap-1.5 flex-1">
+                    <span class="font-jua text-[11px] md:text-xs text-[#a89a93]">1개 봉투</span>
+                    <div id="bit1" class="w-14 h-14 md:w-16 md:h-16 flex items-center justify-center font-jua text-3xl md:text-4xl rounded-2xl transition-all shadow-md">0</div>
+                </div>
+            </div>
+
+            <p class="text-center font-semibold text-[#4a3e3d] text-sm md:text-base mb-6 leading-relaxed bg-[#fdfbf7] p-3.5 rounded-2xl border border-[#eedecc] w-full shadow-inner">
+                마법 상점의 마법 컴퓨터는 초코칩 <span id="popupTargetText" class="text-emerald-600 font-jua text-2xl md:text-3xl mx-1 font-bold underline">5</span>개를 <br>
+                반짝이는 이진수 마법코드 <span id="popupBinaryText" class="text-[#ff7675] font-jua text-2xl md:text-3xl ml-1 bg-yellow-100 px-2.5 py-0.5 rounded-xl border border-yellow-200">0 1 0 1</span>(으)로 읽어 들인답니다!
+            </p>
+
+            <button onclick="closeSuccessModal()" class="w-full bg-[#2ecc71] hover:bg-[#27ae60] active:translate-y-0.5 text-white font-jua text-lg md:text-xl py-3 px-6 rounded-2xl border-2 border-slate-800 shadow-md transition duration-200">
+                확인 (다음 주문 받기)
+            </button>
+        </div>
+    </div>
+
+    <!-- 오디오 엔진 스크립트 -->
+    <script>
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+        function playTone(freq, type, duration, gainValue = 0.08) {
+            try {
+                if (audioCtx.state === 'suspended') {
+                    audioCtx.resume();
+                }
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = type;
+                osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+                gain.gain.setValueAtTime(gainValue, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + duration);
+            } catch (e) {
+                console.log("Audio API 제한 상태");
+            }
+        }
+
+        function playPopSound() { playTone(880, 'sine', 0.1); }
+        function playSuccessSound() {
+            playTone(523.25, 'triangle', 0.15); // C5
+            setTimeout(() => playTone(659.25, 'triangle', 0.15), 100); // E5
+            setTimeout(() => playTone(783.99, 'triangle', 0.15), 200); // G5
+            setTimeout(() => playTone(1046.50, 'triangle', 0.35, 0.12), 300); // C6
+        }
+        function playFailSound() {
+            playTone(220, 'sawtooth', 0.25); // A3
+            setTimeout(() => playTone(147, 'sawtooth', 0.3, 0.12), 120); // D3
+        }
+    </script>
+
+    <!-- 게임 및 제어 연동 스크립트 -->
+    <script>
+        // 각 가방의 활성화/포장 여부 (이진수 비트 상태)
+        let packedBags = { 8: false, 4: false, 2: false, 1: false };
+
+        /**
+         * [v1.25 신규] 알림용 플로팅 토스트 표시 함수
+         * @param {string} msg - 알림 메시지 내용
+         * @param {string} type - 'success', 'warning', 'error' 등
+         */
+        function showFloatingToast(msg, type = 'warning') {
+            const container = document.getElementById('toastContainer');
+            
+            // 기존 토스트 모두 제거
+            container.innerHTML = '';
+
+            const toast = document.createElement('div');
+            toast.className = `toast-animation px-5 py-3 rounded-2xl shadow-lg border-2 font-jua text-sm sm:text-base tracking-wide flex items-center gap-2 pointer-events-auto bg-white`;
+            
+            if (type === 'error') {
+                toast.className += ' border-rose-500 text-rose-600 bg-rose-50';
+                toast.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> ${msg}`;
+            } else {
+                toast.className += ' border-amber-400 text-amber-600 bg-amber-50';
+                toast.innerHTML = `<i class="fa-solid fa-cookie-bite"></i> ${msg}`;
+            }
+
+            container.appendChild(toast);
+
+            // 3.5초 뒤 자동으로 사라지게 설정
+            setTimeout(() => {
+                toast.style.transition = 'opacity 0.4s ease, transform 0.4s ease';
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateY(-15px)';
+                setTimeout(() => toast.remove(), 400);
+            }, 3500);
+        }
+
+        /**
+         * 특정 크기의 봉투를 꾹 눌러 담거나 내리기 토글 제어
+         * @param {number} size - 토글할 가방의 크기 단위 (8, 4, 2, 1)
+         */
+        function toggleBag(size) {
+            playPopSound();
+            packedBags[size] = !packedBags[size];
+            
+            const card = document.getElementById('bag' + size);
+            const indicator = document.getElementById('indicator' + size);
+
+            if (packedBags[size]) {
+                card.classList.add('packed');
+                indicator.innerText = '1';
+                indicator.classList.replace('text-[#94a3b8]', 'text-emerald-600');
+                indicator.classList.add('scale-110', 'font-bold');
+            } else {
+                card.classList.remove('packed');
+                indicator.innerText = '0';
+                indicator.classList.replace('text-emerald-600', 'text-[#94a3b8]');
+                indicator.classList.remove('scale-110', 'font-bold');
+            }
+        }
+
+        /**
+         * 시뮬레이터 포장값 리셋 연동
+         */
+        function resetSimulator() {
+            packedBags = { 8: false, 4: false, 2: false, 1: false };
+            const sizes = [8, 4, 2, 1];
+            sizes.forEach(size => {
+                const card = document.getElementById('bag' + size);
+                const indicator = document.getElementById('indicator' + size);
+                
+                card.classList.remove('packed');
+                indicator.innerText = '0';
+                indicator.className = "font-jua text-2xl md:text-3xl text-[#94a3b8] transition-all duration-300 leading-none";
+            });
+
+            // 기존 알림창 지우기
+            document.getElementById('toastContainer').innerHTML = '';
+        }
+
+        /**
+         * 대성공 시 신나게 터지는 좌우 폭죽과 꽃가루 샤워 시퀀스
+         */
+        function triggerFireworks() {
+            if (typeof confetti === 'function') {
+                // 1단계: 좌측 하단 및 우측 하단 동시 폭죽 분사
+                confetti({
+                    particleCount: 100,
+                    spread: 80,
+                    origin: { x: 0.15, y: 0.85 }
+                });
+                confetti({
+                    particleCount: 100,
+                    spread: 80,
+                    origin: { x: 0.85, y: 0.85 }
+                });
+
+                // 2단계: 0.8초 뒤 공중에서 흩날리는 풍성한 은하수 샤워
+                setTimeout(() => {
+                    confetti({
+                        particleCount: 120,
+                        angle: 90,
+                        spread: 120,
+                        origin: { x: 0.5, y: 0.2 }
+                    });
+                }, 800);
+            }
+        }
+
+        /**
+         * 대성공 시 이진 코드를 분석하여 거대한 팝업창을 띄워주는 함수
+         * @param {number} target - 포장 목표 숫자
+         * @param {object} bags - 담긴 봉투 상태 리스트
+         */
+        function showSuccessModal(target, bags) {
+            const modal = document.getElementById('successModal');
+            const inner = modal.querySelector('div');
+            
+            document.getElementById('popupTarget').innerText = target;
+            document.getElementById('popupTargetText').innerText = target;
+
+            const bits = [8, 4, 2, 1];
+            let binaryStr = '';
+            
+            bits.forEach(bit => {
+                const isActive = bags[bit];
+                const bitVal = isActive ? '1' : '0';
+                binaryStr += bitVal + ' ';
+
+                const bitEl = document.getElementById('bit' + bit);
+                bitEl.innerText = bitVal;
+                
+                if (isActive) {
+                    bitEl.className = "w-14 h-14 md:w-16 md:h-16 flex items-center justify-center font-jua text-3xl md:text-4xl rounded-2xl transition-all shadow-md bg-emerald-500 text-white border-2 border-emerald-600 scale-105";
+                } else {
+                    bitEl.className = "w-14 h-14 md:w-16 md:h-16 flex items-center justify-center font-jua text-3xl md:text-4xl rounded-2xl transition-all shadow-md bg-slate-100 text-slate-400 border-2 border-slate-300";
+                }
+            });
+
+            document.getElementById('popupBinaryText').innerText = binaryStr.trim();
+
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.classList.add('opacity-100');
+                inner.classList.replace('scale-90', 'scale-100');
+            }, 50);
+        }
+
+        /**
+         * 대성공 팝업 모달을 닫는 함수
+         */
+        function closeSuccessModal() {
+            const modal = document.getElementById('successModal');
+            const inner = modal.querySelector('div');
+            modal.classList.remove('opacity-100');
+            inner.classList.replace('scale-100', 'scale-90');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 300);
+        }
+
+        /**
+         * [포장 완료] 누를 시 손님의 초코칩 목표량과 일치하는지 판별하는 수치 검증 프로세스
+         */
+        function checkPackingResult() {
+            const target = parseInt(document.getElementById('targetSelect').value);
+            let currentSum = 0;
+            let binaryResult = '';
+
+            const sizes = [8, 4, 2, 1];
+            sizes.forEach(size => {
+                if (packedBags[size]) {
+                    currentSum += size;
+                    binaryResult += '1 ';
+                } else {
+                    binaryResult += '0 ';
+                }
+            });
+            
+            if (currentSum === target) {
+                // 성공 상태
+                playSuccessSound();
+                
+                // 신나는 폭죽 발사!
+                triggerFireworks();
+
+                // 교사용 대성공 이진 분석 대형 팝업 전개
+                setTimeout(() => {
+                    showSuccessModal(target, packedBags);
+                }, 100);
+            } else if (currentSum > target) {
+                // 초과 실패 상태 (v1.25: 플로팅 토스트로 안내)
+                playFailSound();
+                showFloatingToast(`너무 무거워요! 담은 초코칩(${currentSum}개)이 주문량(${target}개)을 넘었습니다.`, 'error');
+            } else {
+                // 부족 상태 (v1.25: 플로팅 토스트로 안내)
+                playFailSound();
+                showFloatingToast(`쿠키가 모자라요! 담은 개수: ${currentSum}개 / 주문량: ${target}개`, 'warning');
+            }
+        }
+    </script>
+</body>
+</html>

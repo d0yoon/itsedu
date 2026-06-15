@@ -1,0 +1,1423 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <!-- 버전 트래커 내부 표기 및 브라우저 타이틀 고도화 -->
+    <title>내 맘대로 보물지도 만들기 (v1.08) - 지능형 조향 버전</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        jua: ['Jua', 'sans-serif'],
+                        noto: ['Noto Sans KR', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            background-color: #f0f4f8;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+
+        /* 입체 아케이드 컨테이너 */
+        .arcade-container {
+            border: 6px solid #0f172a;
+            box-shadow: 10px 10px 0px #0f172a;
+        }
+
+        /* 로봇 이동 시 부드러운 하드웨어 가속 전환 */
+        #robot {
+            transition: left 0.5s cubic-bezier(0.25, 1, 0.5, 1), top 0.5s cubic-bezier(0.25, 1, 0.5, 1);
+            will-change: left, top;
+        }
+
+        /* [핵심 물리 가드] 섀시 그룹 독립 회전 보정 (비율 기준으로 오차 극복) */
+        #robot-chassis {
+            transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+            transform-origin: 50% 50%;
+        }
+
+        /* 불길 파티클 애니메이션 */
+        @keyframes fire-flicker {
+            0% { transform: scale(0.95) translateY(2px) rotate(-1deg); }
+            50% { transform: scale(1.08) translateY(-2px) rotate(2deg); }
+            100% { transform: scale(0.95) translateY(2px) rotate(-1deg); }
+        }
+
+        .fire-sprite {
+            animation: fire-flicker 0.4s ease-in-out infinite alternate;
+        }
+
+        /* 별빛 반짝임 애니메이션 */
+        @keyframes star-twinkle {
+            0% { opacity: 0.3; transform: scale(0.7) rotate(0deg); }
+            50% { opacity: 1; transform: scale(1.2) rotate(180deg); }
+            100% { opacity: 0.3; transform: scale(0.7) rotate(360deg); }
+        }
+
+        .star-item {
+            animation: star-twinkle 1.2s infinite ease-in-out;
+        }
+
+        /* 하이라이트 발광 라인 애니메이션 */
+        @keyframes path-glow {
+            0% { opacity: 0.4; stroke-width: 14px; }
+            50% { opacity: 0.85; stroke-width: 18px; }
+            100% { opacity: 0.4; stroke-width: 14px; }
+        }
+
+        .glowing-path {
+            animation: path-glow 1.2s infinite ease-in-out;
+        }
+
+        @keyframes warning-pulse {
+            0% { transform: scale(0.9); opacity: 0.4; }
+            100% { transform: scale(1.25); opacity: 0.9; }
+        }
+
+        .warning-ring {
+            animation: warning-pulse 0.6s infinite alternate;
+        }
+
+        /* 프리미엄 우드 바둑판 상하 여백 압축 튜닝 */
+        .baduk-board {
+            background-color: #f7dfb3;
+            background-image: 
+                radial-gradient(circle at 50% 50%, transparent 60%, rgba(139, 92, 26, 0.08) 100%),
+                repeating-linear-gradient(0deg, transparent, transparent 4px, rgba(0, 0, 0, 0.01) 4px, rgba(0, 0, 0, 0.01) 8px);
+            border: 6px solid #78350f;
+            box-shadow: inset 0 0 30px rgba(120, 53, 15, 0.3), 0 10px 20px -5px rgba(0,0,0,0.2);
+        }
+
+        @keyframes pop {
+            0% { transform: scale(0.8); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        .flow-scrollbar::-webkit-scrollbar {
+            height: 6px;
+        }
+        .flow-scrollbar::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 9999px;
+        }
+        .flow-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 9999px;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-center items-center p-1.5 md:p-3">
+
+    <div class="w-full max-w-4xl bg-white rounded-[28px] p-3 md:p-4 arcade-container flex flex-col justify-between gap-3 relative animate-[pop_0.3s_ease-out]">
+        
+        <!-- 상단 타이틀 및 실시간 상태 안내판 + 난이도 선택 통합 헤더 -->
+        <div class="flex flex-col md:flex-row justify-between items-center border-b-4 border-dashed border-slate-200 pb-3 gap-3">
+            <div class="flex items-center gap-2 w-full">
+                <span class="text-3xl text-amber-500 animate-bounce flex-shrink-0"><i class="fa-solid fa-map-location-dot"></i></span>
+                <div class="w-full">
+                    <h1 class="font-jua text-2xl md:text-3xl text-slate-800 tracking-wide">내 맘대로 보물지도 만들기</h1>
+                    <div class="flex items-center gap-2 mt-0.5 w-full">
+                        <p id="systemMessage" class="text-indigo-600 font-jua text-sm md:text-base transition-all duration-300 flex items-center gap-1.5 flex-wrap">
+                            출발지에서 보물상자까지 선을 연결해 알고리즘 경로를 설계해 보세요!
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 우측형 프리미엄 난이도 조절 탭 버튼바 (특수교육 최적화) -->
+            <div class="flex bg-slate-100 p-1 rounded-2xl border-4 border-slate-900 shadow-[3px_3px_0px_#0f172a] font-jua flex-shrink-0 w-full md:w-auto">
+                <button id="mode-easy" onclick="changeDifficulty('easy')" class="flex-1 md:flex-none px-4 py-2 rounded-xl transition-all duration-150 text-slate-500 hover:text-slate-800 text-sm md:text-base cursor-pointer flex items-center justify-center gap-1.5">
+                    <span class="w-3.5 h-3.5 rounded-full bg-emerald-500"></span>쉬움
+                </button>
+                <button id="mode-normal" onclick="changeDifficulty('normal')" class="flex-1 md:flex-none px-4 py-2 rounded-xl transition-all duration-150 text-slate-500 hover:text-slate-800 text-sm md:text-base cursor-pointer flex items-center justify-center gap-1.5">
+                    <span class="w-3.5 h-3.5 rounded-full bg-indigo-500"></span>보통
+                </button>
+                <button id="mode-hard" onclick="changeDifficulty('hard')" class="flex-1 md:flex-none px-4 py-2 rounded-xl transition-all duration-150 text-slate-500 hover:text-slate-800 text-sm md:text-base cursor-pointer flex items-center justify-center gap-1.5">
+                    <span class="w-3.5 h-3.5 rounded-full bg-rose-500"></span>어려움
+                </button>
+            </div>
+        </div>
+
+        <!-- 태블릿 전용 4대 조작 버튼바 -->
+        <div class="grid grid-cols-4 gap-2.5 w-full">
+            <!-- 1. 로봇 출발 -->
+            <button id="btn-start" onclick="startSimulation()" class="flex items-center justify-between p-1.5 md:p-2.5 rounded-xl border-4 border-slate-900 bg-indigo-600 hover:bg-indigo-700 text-white font-jua text-base md:text-xl transition-all duration-150 shadow-[3px_3px_0px_#0f172a] hover:translate-y-[1px] hover:shadow-[1px_1px_0px_#0f172a] active:translate-y-[3px] active:shadow-none cursor-pointer">
+                <div class="flex items-center gap-1.5 md:gap-2 mx-auto">
+                    <span class="w-7 h-7 md:w-8 md:h-8 rounded-full bg-white flex items-center justify-center text-indigo-600 border border-slate-900 shadow-inner">
+                        <i class="fa-solid fa-play text-xs md:text-sm"></i>
+                    </span>
+                    <span class="tracking-wider">로봇 출발</span>
+                </div>
+            </button>
+            <!-- 2. 뜨거운 불길 배치 -->
+            <button id="tool-fire" onclick="selectTool('tool-fire')" class="flex items-center justify-between p-1.5 md:p-2.5 rounded-xl border-4 border-slate-900 bg-rose-500 hover:bg-rose-600 text-white font-jua text-base md:text-xl transition-all duration-150 shadow-[3px_3px_0px_#0f172a] hover:translate-y-[1px] hover:shadow-[1px_1px_0px_#0f172a] active:translate-y-[3px] active:shadow-none cursor-pointer">
+                <div class="flex items-center gap-1.5 md:gap-2 mx-auto">
+                    <span class="w-7 h-7 md:w-8 md:h-8 rounded-full bg-white flex items-center justify-center text-rose-500 border border-slate-900 shadow-inner">
+                        <i class="fa-solid fa-fire text-xs md:text-sm"></i>
+                    </span>
+                    <span class="tracking-wider">불길 배치</span>
+                </div>
+            </button>
+            <!-- 3. 황금 보물 배치 -->
+            <button id="tool-treasure" onclick="selectTool('tool-treasure')" class="flex items-center justify-between p-1.5 md:p-2.5 rounded-xl border-4 border-slate-900 bg-teal-600 hover:bg-teal-700 text-white font-jua text-base md:text-xl transition-all duration-150 shadow-[3px_3px_0px_#0f172a] hover:translate-y-[1px] hover:shadow-[1px_1px_0px_#0f172a] active:translate-y-[3px] active:shadow-none cursor-pointer">
+                <div class="flex items-center gap-1.5 md:gap-2 mx-auto">
+                    <span class="w-7 h-7 md:w-8 md:h-8 rounded-full bg-white flex items-center justify-center text-teal-600 border border-slate-900 shadow-inner">
+                        <i class="fa-solid fa-gem text-xs md:text-sm"></i>
+                    </span>
+                    <span class="tracking-wider">보물 배치</span>
+                </div>
+            </button>
+            <!-- 4. 전체 초기화 -->
+            <button id="btn-clear" onclick="clearEverything()" class="flex items-center justify-between p-1.5 md:p-2.5 rounded-xl border-4 border-slate-900 bg-slate-700 hover:bg-slate-800 text-white font-jua text-base md:text-xl transition-all duration-150 shadow-[3px_3px_0px_#0f172a] hover:translate-y-[1px] hover:shadow-[1px_1px_0px_#0f172a] active:translate-y-[3px] active:shadow-none cursor-pointer">
+                <div class="flex items-center gap-1.5 md:gap-2 mx-auto">
+                    <span class="w-7 h-7 md:w-8 md:h-8 rounded-full bg-white flex items-center justify-center text-slate-700 border-4 border-slate-900 shadow-inner">
+                        <i class="fa-solid fa-trash-can text-xs md:text-sm"></i>
+                    </span>
+                    <span class="tracking-wider">전체 초기화</span>
+                </div>
+            </button>
+        </div>
+
+        <!-- 4X6 격자선 간격 확장형 바둑판 -->
+        <div class="w-full aspect-[16/9] md:aspect-[21/9] max-h-[290px] baduk-board rounded-[24px] relative overflow-hidden" id="mapViewport">
+            
+            <!-- [전역 그래픽 정의] 그라디언트 ID 중복 정의 방지 통합 풀 -->
+            <svg style="position: absolute; width: 0; height: 0; overflow: hidden;" aria-hidden="true">
+                <defs>
+                    <!-- 헤드라이트 빔 입체 그라디언트 -->
+                    <linearGradient id="headlight-beam" x1="0%" y1="50%" x2="100%" y2="50%">
+                        <stop offset="0%" stop-color="#fbbf24" stop-opacity="0.9"/>
+                        <stop offset="30%" stop-color="#fef08a" stop-opacity="0.6"/>
+                        <stop offset="100%" stop-color="#fef08a" stop-opacity="0"/>
+                    </linearGradient>
+                    <!-- 로봇 몸체 금속 질감 그라디언트 -->
+                    <linearGradient id="grad-body" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stop-color="#64748b"/>
+                        <stop offset="50%" stop-color="#475569"/>
+                        <stop offset="100%" stop-color="#334155"/>
+                    </linearGradient>
+                    <!-- 불길 레이어 그라디언트 -->
+                    <linearGradient id="grad-fire-outer" x1="0%" y1="0%" x2="0%" y2="100%">
+                        <stop offset="0%" stop-color="#ef4444"/>
+                        <stop offset="100%" stop-color="#991b1b"/>
+                    </linearGradient>
+                    <linearGradient id="grad-fire-mid" x1="0%" y1="0%" x2="0%" y2="100%">
+                        <stop offset="0%" stop-color="#f97316"/>
+                        <stop offset="100%" stop-color="#ea580c"/>
+                    </linearGradient>
+                    <linearGradient id="grad-fire-inner" x1="0%" y1="0%" x2="0%" y2="100%">
+                        <stop offset="0%" stop-color="#facc15"/>
+                        <stop offset="100%" stop-color="#eab308"/>
+                    </linearGradient>
+                    
+                    <!-- 직진 세그먼트용 프리미엄 메탈릭 그린 그라디언트 -->
+                    <linearGradient id="grad-straight" x1="0%" y1="0%" x2="100%" y2="0%">
+                        <stop offset="0%" stop-color="#10b981"/>
+                        <stop offset="100%" stop-color="#059669"/>
+                    </linearGradient>
+                </defs>
+            </svg>
+
+            <!-- [바둑판선] 가로선 4줄 여백 대폭 확장 (12%, 37%, 62%, 87%로 대칭 정렬) -->
+            <div class="absolute bg-slate-900 h-[6px] rounded-full opacity-85" style="left: 10%; right: 10%; top: calc(12% - 3px);"></div>
+            <div class="absolute bg-slate-900 h-[6px] rounded-full opacity-85" style="left: 10%; right: 10%; top: calc(37% - 3px);"></div>
+            <div class="absolute bg-slate-900 h-[6px] rounded-full opacity-85" style="left: 10%; right: 10%; top: calc(62% - 3px);"></div>
+            <div class="absolute bg-slate-900 h-[6px] rounded-full opacity-85" style="left: 10%; right: 10%; top: calc(87% - 3px);"></div>
+
+            <!-- [바둑판선] 세로선 6줄 (10% ~ 90%까지 대칭 정렬) -->
+            <div class="absolute bg-slate-900 w-[6px] rounded-full opacity-85" style="left: calc(10% - 3px); top: 12%; height: 75%;"></div>
+            <div class="absolute bg-slate-900 w-[6px] rounded-full opacity-85" style="left: calc(26% - 3px); top: 12%; height: 75%;"></div>
+            <div class="absolute bg-slate-900 w-[6px] rounded-full opacity-85" style="left: calc(42% - 3px); top: 12%; height: 75%;"></div>
+            <div class="absolute bg-slate-900 w-[6px] rounded-full opacity-85" style="left: calc(58% - 3px); top: 12%; height: 75%;"></div>
+            <div class="absolute bg-slate-900 w-[6px] rounded-full opacity-85" style="left: calc(74% - 3px); top: 12%; height: 75%;"></div>
+            <div class="absolute bg-slate-900 w-[6px] rounded-full opacity-85" style="left: calc(90% - 3px); top: 12%; height: 75%;"></div>
+
+            <!-- 하이브리드 인터랙션 가동용 동적 레이어들 -->
+            <div id="hwajumLayer" class="absolute inset-0 pointer-events-none z-10"></div>
+            <svg id="activePathLayer" class="absolute inset-0 z-5 pointer-events-none w-full h-full"></svg>
+            <div id="guidesLayer" class="absolute inset-0 pointer-events-none z-10"></div>
+            <div id="commandsLayer" class="absolute inset-0 z-30 pointer-events-none"></div>
+            <div id="hazardsLayer" class="absolute inset-0 z-20 pointer-events-none"></div>
+            <div id="treasureLayer" class="absolute inset-0 z-20 pointer-events-none"></div>
+            <div id="anchorsLayer" class="absolute inset-0 z-40 pointer-events-none"></div>
+
+            <!-- 코딩 로봇 주체 (바퀴 수평 정렬 및 지향성 헤드라이트 빔 결합) -->
+            <div id="robot" class="absolute z-50 pointer-events-none" style="left: calc(10% - 30px); top: calc(87% - 30px); width: 60px; height: 60px;">
+                <svg viewBox="0 0 100 100" class="w-full h-full drop-shadow-md overflow-visible">
+                    <!-- [1. 독립 회전 섀시 그룹] 바퀴, 헤드빔, 차체 껍데기가 함께 회전 -->
+                    <g id="robot-chassis">
+                        <!-- 전방 우측 조사 헤드라이트 광선 효과 (0도 기준 우향) -->
+                        <path d="M 80 32 L 210 5 L 210 95 L 80 68 Z" fill="url(#headlight-beam)" opacity="0.85"/>
+
+                        <!-- [완전 비틀림 보정형 타이어 바퀴] 전진 방향과 타이어 굴림 방향 기하학적 100% 동기화 -->
+                        <rect x="18" y="4" width="22" height="12" rx="5" fill="#1e293b"/>
+                        <rect x="60" y="4" width="22" height="12" rx="5" fill="#1e293b"/>
+                        <rect x="18" y="84" width="22" height="12" rx="5" fill="#1e293b"/>
+                        <rect x="60" y="84" width="22" height="12" rx="5" fill="#1e293b"/>
+                        
+                        <!-- 로봇 메인 금속 바디 -->
+                        <rect x="14" y="14" width="72" height="72" rx="20" fill="url(#grad-body)" stroke="#0f172a" stroke-width="4"/>
+                        
+                        <!-- 앞부분 하드웨어 램프 (우향 기준 전면에 고정 부착) -->
+                        <circle cx="80" cy="32" r="4" fill="#fef08a" stroke="#d97706" stroke-width="1"/>
+                        <circle cx="80" cy="68" r="4" fill="#fef08a" stroke="#d97706" stroke-width="1"/>
+                        <circle cx="50" cy="72" r="7" fill="#eab308" stroke="#0f172a" stroke-width="1.5"/>
+                    </g>
+                    
+                    <!-- [2. 고정 얼굴 스크린 그룹] 차체가 어떻게 돌아가든, 아이들 기준 항상 바르게 기립 (정적 정렬 유지) -->
+                    <g id="robot-face">
+                        <rect x="24" y="29" width="52" height="42" rx="10" fill="#0284c7" stroke="#000000" stroke-width="2.5"/>
+                        <rect x="27" y="32" width="46" height="36" rx="8" fill="#0c4a6e"/>
+                        
+                        <!-- 앙증맞은 눈과 볼터치, 미소 -->
+                        <ellipse cx="40" cy="46" rx="5.5" ry="5.5" fill="#22d3ee"/>
+                        <ellipse cx="60" cy="46" r="5.5" fill="#22d3ee"/>
+                        <path d="M 34 35 Q 40 32 46 35" fill="none" stroke="#22d3ee" stroke-width="2.5" stroke-linecap="round"/>
+                        <path d="M 54 35 Q 60 32 66 35" fill="none" stroke="#22d3ee" stroke-width="2.5" stroke-linecap="round"/>
+                        <path d="M 44 57 Q 50 61 56 57" fill="none" stroke="#22d3ee" stroke-width="2.5" stroke-linecap="round"/>
+                        <circle cx="32" cy="54" r="3.5" fill="#f43f5e" opacity="0.8"/>
+                        <circle cx="68" cy="54" r="3.5" fill="#f43f5e" opacity="0.8"/>
+                    </g>
+                </svg>
+            </div>
+
+        </div>
+
+        <!-- 하단: 미니 배지 알고리즘 흐름판 (설명문 제거 및 극소형 레이아웃 탑재) -->
+        <div class="bg-slate-100 border-4 border-slate-900 rounded-[20px] p-2 flex flex-col gap-1 shadow-inner">
+            <h3 class="font-jua text-sm text-slate-800 flex items-center gap-1.5 px-1">
+                <i class="fa-solid fa-route text-indigo-500"></i> 실시간 알고리즘 흐름
+            </h3>
+            <div id="flowCardsContainer" class="flex items-center gap-1.5 overflow-x-auto py-1 px-1 flow-scrollbar min-h-[50px]"></div>
+        </div>
+
+    </div>
+
+    <!-- 대성공 오버레이 모달 창 -->
+    <div id="successModal" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-[32px] border-8 border-emerald-400 p-8 max-w-md w-full text-center shadow-2xl relative overflow-hidden animate-[pop_0.3s_ease-out]">
+            <span class="text-7xl text-amber-500 animate-bounce block"><i class="fa-solid fa-trophy"></i></span>
+            <h2 class="font-jua text-4xl text-slate-800 mt-4 mb-2">미션 대성공! 🎉</h2>
+            <p class="text-slate-600 font-bold mb-6">스스로 설계한 알고리즘으로 완벽하게 모든 보물을 찾았습니다!</p>
+            <button onclick="closeSuccessModal()" class="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-jua text-2xl py-4 rounded-2xl transition transform active:scale-95 shadow-lg">
+                도전 계속하기 🚀
+            </button>
+        </div>
+    </div>
+
+    <script>
+        const APP_VERSION = "1.08"; // 버전 관리 일관 유지
+
+        // 브라우저 주파수 합성 오디오 엔진 (지연 로딩으로 비정상적 아이프레임 차단 방어)
+        let audioCtx = null;
+        function getAudioContext() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            return audioCtx;
+        }
+
+        function playTone(freq, type, duration, gainStart = 0.1) {
+            try {
+                const ctx = getAudioContext();
+                if (ctx.state === 'suspended') {
+                    ctx.resume();
+                }
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                
+                osc.type = type;
+                osc.frequency.setValueAtTime(freq, ctx.currentTime);
+                
+                gain.gain.setValueAtTime(gainStart, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + duration);
+                
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                
+                osc.start();
+                osc.stop(ctx.currentTime + duration);
+            } catch (e) {
+                console.log("Audio Context 블로킹 상황 대응 가동");
+            }
+        }
+
+        function playPopSound() { playTone(880, 'sine', 0.1); }
+        function playSuccessSound() {
+            playTone(523.25, 'triangle', 0.15, 0.15); 
+            setTimeout(() => playTone(659.25, 'triangle', 0.15, 0.15), 100); 
+            setTimeout(() => playTone(783.99, 'triangle', 0.15, 0.15), 200); 
+            setTimeout(() => playTone(1046.50, 'triangle', 0.4, 0.2), 300); 
+        }
+        function playExplosionSound() {
+            playTone(180, 'sawtooth', 0.5, 0.2);
+            playTone(90, 'triangle', 0.6, 0.35);
+        }
+        function playCrashSound() {
+            playTone(330, 'sine', 0.2, 0.15);
+            setTimeout(() => playTone(220, 'sine', 0.3, 0.15), 150);
+        }
+
+        // 최초 클릭 상호작용 시 모바일 오디오 보안 정책 잠금 해제 가드
+        const unlockAudio = () => {
+            try {
+                const ctx = getAudioContext();
+                if (ctx && ctx.state === 'suspended') {
+                    ctx.resume();
+                }
+            } catch (e) {}
+            window.removeEventListener('click', unlockAudio);
+            window.removeEventListener('touchstart', unlockAudio);
+        };
+        window.addEventListener('click', unlockAudio);
+        window.addEventListener('touchstart', unlockAudio);
+
+        // 지연 처리 함수
+        const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+        // 예외 에러 경고 램프
+        function showWarning(msg) {
+            const msgEl = document.getElementById('systemMessage');
+            if (msgEl) {
+                msgEl.innerText = msg;
+                msgEl.className = "text-rose-500 font-jua text-sm md:text-base mt-1.5 transition-all duration-300 animate-pulse";
+            }
+            playCrashSound();
+        }
+
+        // [좌표 비율 구하기 유틸리티 함수]
+        function getCoordPercent(val, axis) {
+            if (axis === 'x') {
+                if (Number.isInteger(val)) {
+                    return colCoords[val];
+                }
+                const floorIdx = Math.floor(val);
+                const ceilIdx = Math.ceil(val);
+                if (floorIdx >= 0 && ceilIdx < 6) {
+                    return (colCoords[floorIdx] + colCoords[ceilIdx]) / 2;
+                }
+                return 50;
+            } else {
+                if (Number.isInteger(val)) {
+                    return rowCoords[val];
+                }
+                const floorIdx = Math.floor(val);
+                const ceilIdx = Math.ceil(val);
+                if (floorIdx >= 0 && ceilIdx < 4) {
+                    return (rowCoords[floorIdx] + rowCoords[ceilIdx]) / 2;
+                }
+                return 50;
+            }
+        }
+    </script>
+
+    <script>
+        // 센터 대칭 격자 비례 배치 테이블
+        const rowCoords = [12, 37, 62, 87];
+        const colCoords = [10, 26, 42, 58, 74, 90];
+        
+        let startRow = 3;             
+        let startCol = 0;             
+        let treasures = {};           
+        let hazards = {};             
+        let boardCommands = {};       
+        
+        let selectedTool = null;      
+        let isSimulating = false;     
+        let activeTreasures = {};     
+        let currentAngle = 0;         
+        
+        // 현재 난이도 모드 상태 관리 ('easy', 'normal', 'hard')
+        let currentMode = 'normal'; 
+
+        const directions = {
+            "Up": { r: -1, c: 0 },
+            "Right": { r: 0, c: 1 },
+            "Down": { r: 1, c: 0 },
+            "Left": { r: 0, c: -1 }
+        };
+
+        const turnRightMap = { "Up": "Right", "Right": "Down", "Down": "Left", "Left": "Up" };
+        const turnLeftMap = { "Up": "Left", "Left": "Down", "Down": "Right", "Right": "Up" };
+        const uTurnMap = { "Up": "Down", "Right": "Left", "Down": "Up", "Left": "Right" };
+
+        let traceResults = {
+            path: [],
+            visited: new Set(),
+            entryDirs: {},
+            warnings: {},
+            activeSegments: new Set(),
+            pathNodes: [],
+            segmentDirs: {}
+        };
+
+        function placeRandomTreasure() {
+            treasures = {};
+            const possibleNodes = [];
+            for (let r = 0; r < 4; r++) {
+                for (let c = 0; c < 6; c++) {
+                    if (r === 3 && c === 0) continue; 
+                    if (r === 2 && c === 0) continue; 
+                    if (r === 3 && c === 1) continue; 
+                    possibleNodes.push({ r, c });
+                }
+            }
+            const randomNode = possibleNodes[Math.floor(Math.random() * possibleNodes.length)];
+            treasures[`${randomNode.r},${randomNode.c}`] = true;
+        }
+
+        window.onload = function() {
+            startRow = 3;
+            startCol = 0;
+            placeRandomTreasure(); 
+            changeDifficulty('normal'); // 기본 '보통' 모드로 초기 지정
+        };
+
+        // [난이도 모드 변환 함수]
+        function changeDifficulty(mode) {
+            if (isSimulating) return;
+            currentMode = mode;
+            playTone(mode === 'easy' ? 523.25 : (mode === 'normal' ? 659.25 : 783.99), 'sine', 0.15);
+            
+            // 모든 난이도 조절 탭 버튼 UI 리셋 및 활성화 광원 처리
+            const modes = ['easy', 'normal', 'hard'];
+            modes.forEach(m => {
+                const btn = document.getElementById(`mode-${m}`);
+                if (btn) {
+                    btn.className = "flex-1 md:flex-none px-4 py-2 rounded-xl transition-all duration-150 text-slate-500 hover:text-slate-800 text-sm md:text-base cursor-pointer flex items-center justify-center gap-1.5";
+                }
+            });
+            
+            const activeBtn = document.getElementById(`mode-${mode}`);
+            if (activeBtn) {
+                if (mode === 'easy') {
+                    activeBtn.className = "flex-1 md:flex-none px-4 py-2 rounded-xl transition-all duration-150 bg-emerald-500 text-white border-2 border-slate-900 shadow-inner font-bold text-sm md:text-base cursor-pointer flex items-center justify-center gap-1.5";
+                } else if (mode === 'normal') {
+                    activeBtn.className = "flex-1 md:flex-none px-4 py-2 rounded-xl transition-all duration-150 bg-indigo-600 text-white border-2 border-slate-900 shadow-inner font-bold text-sm md:text-base cursor-pointer flex items-center justify-center gap-1.5";
+                } else if (mode === 'hard') {
+                    activeBtn.className = "flex-1 md:flex-none px-4 py-2 rounded-xl transition-all duration-150 bg-rose-500 text-white border-2 border-slate-900 shadow-inner font-bold text-sm md:text-base cursor-pointer flex items-center justify-center gap-1.5";
+                }
+            }
+
+            runAnalysis();
+        }
+
+        function initMap() {
+            renderHwajum();     
+            renderGuides();     
+            renderActivePath(); 
+            renderCommands();   
+            renderHazards();    
+            renderTreasures();  
+            positionRobotAtStart();
+            renderClickAnchors();
+            updateButtonStates(); 
+            updateAnalysisMessage(); 
+            renderCompactAlgorithmBadges();
+        }
+
+        function renderHwajum() {
+            const container = document.getElementById('hwajumLayer');
+            container.innerHTML = '';
+            for (let r = 0; r < 4; r++) {
+                for (let c = 0; c < 6; c++) {
+                    const x = getCoordPercent(c, 'x');
+                    const y = getCoordPercent(r, 'y');
+                    const dot = document.createElement('div');
+                    dot.className = "absolute bg-slate-900 w-3.5 h-3.5 rounded-full opacity-90 shadow-sm pointer-events-none";
+                    dot.style.left = `calc(${x}% - 7px)`;
+                    dot.style.top = `calc(${y}% - 7px)`;
+                    container.appendChild(dot);
+                }
+            }
+        }
+
+        function runAnalysis() {
+            let currR = 3;
+            let currC = 0;
+            
+            let hasUp = boardCommands["segment,2.5,0"] === 'straight';
+            let hasRight = boardCommands["segment,3,0.5"] === 'straight';
+            let currDir = "Right";
+            if (hasUp && !hasRight) currDir = "Up";
+
+            let path = [{ r: currR, c: currC, dir: currDir }];
+            let visited = new Set();
+            visited.add(`${currR},${currC}`);
+            
+            let entryDirs = {};
+            entryDirs[`${currR},${currC}`] = currDir;
+            
+            let segmentDirs = {}; 
+            let warnings = {}; 
+            let activeSegments = new Set();
+            
+            let steps = 0;
+            const maxSteps = 50;
+
+            while (steps < maxSteps) {
+                steps++;
+
+                let connectedDirs = [];
+                const possibleDirs = ["Up", "Right", "Down", "Left"];
+                
+                possibleDirs.forEach(d => {
+                    let nextR = currR + directions[d].r;
+                    let nextC = currC + directions[d].c;
+                    if (nextR >= 0 && nextR < 4 && nextC >= 0 && nextC < 6) {
+                        let midR = (currR + nextR) / 2;
+                        let midC = (currC + nextC) / 2;
+                        let segKey = `segment,${midR},${midC}`;
+                        if (boardCommands[segKey] === 'straight') {
+                            connectedDirs.push(d);
+                        }
+                    }
+                });
+
+                // [쉬움 모드 전용 스마트 한붓그리기 조향 해결사]
+                // 사용자가 길(세그먼트)만 클릭해도, 현재 진행 중인 방문 노드 위치에서 진출 가능한 초록선 목록을 계산하여
+                // 좌/우회전 명령 타일을 100% 완전 자동 계산하여 심어줍니다.
+                if (currentMode === 'easy') {
+                    let outgoing = [];
+                    possibleDirs.forEach(d => {
+                        if (d === uTurnMap[currDir]) return; // 뒤돌아가는 길은 패스
+                        let nextR = currR + directions[d].r;
+                        let nextC = currC + directions[d].c;
+                        if (nextR >= 0 && nextR < 4 && nextC >= 0 && nextC < 6) {
+                            let midR = (currR + nextR) / 2;
+                            let midC = (currC + nextC) / 2;
+                            let segKey = `segment,${midR},${midC}`;
+                            if (boardCommands[segKey] === 'straight') {
+                                outgoing.push(d);
+                            }
+                        }
+                    });
+
+                    // 외길 전개 방향이 딱 1개 존재하는 경우 자동으로 적합한 회전 명령 각인
+                    if (outgoing.length === 1) {
+                        let nextDir = outgoing[0];
+                        if (nextDir === turnLeftMap[currDir]) {
+                            boardCommands[`${currR},${currC}`] = 'left';
+                        } else if (nextDir === turnRightMap[currDir]) {
+                            boardCommands[`${currR},${currC}`] = 'right';
+                        } else if (nextDir === currDir) {
+                            delete boardCommands[`${currR},${currC}`];
+                        }
+                    } else {
+                        // 갈림길이거나 끊긴 경우에는 명령 데이터 초기화
+                        delete boardCommands[`${currR},${currC}`];
+                    }
+                }
+
+                let turnCmd = boardCommands[`${currR},${currC}`];
+                let nextDir = currDir;
+                if (turnCmd === 'left') {
+                    nextDir = turnLeftMap[currDir];
+                } else if (turnCmd === 'right') {
+                    nextDir = turnRightMap[currDir];
+                }
+
+                if (currR === 3 && currC === 0) {
+                    if (connectedDirs.length > 1) {
+                        warnings[`${currR},${currC}`] = "branch";
+                        break;
+                    }
+                } else {
+                    let incomingOpposite = uTurnMap[currDir];
+                    let branchDirs = connectedDirs.filter(d => d !== incomingOpposite);
+                    if (branchDirs.length > 1) {
+                        warnings[`${currR},${currC}`] = "branch";
+                        break;
+                    }
+                }
+
+                let targetR = currR + directions[nextDir].r;
+                let targetC = currC + directions[nextDir].c;
+                let midR = (currR + targetR) / 2;
+                let midC = (currC + targetC) / 2;
+                let targetSegKey = `segment,${midR},${midC}`;
+
+                let hasSegment = boardCommands[targetSegKey] === 'straight';
+
+                // [버그 수정 1: invalid_turn_no_road 오류 교정]
+                if (!hasSegment) {
+                    if (turnCmd) {
+                        warnings[`${currR},${currC}`] = "invalid_turn_no_road";
+                    }
+                    break;
+                }
+
+                segmentDirs[targetSegKey] = nextDir;
+
+                currR = targetR;
+                currC = targetC;
+                currDir = nextDir;
+
+                let nodeKey = `${currR},${currC}`;
+                activeSegments.add(targetSegKey);
+
+                if (visited.has(nodeKey)) {
+                    warnings[nodeKey] = "loop";
+                    break;
+                }
+
+                visited.add(nodeKey);
+                entryDirs[nodeKey] = currDir;
+                path.push({ r: currR, c: currC, dir: currDir });
+            }
+
+            // [버그 수정 2: 무의미한 미방문 회전 명령 자동 클린업]
+            Object.keys(boardCommands).forEach(key => {
+                if (!key.startsWith("segment")) { // 세그먼트가 아닌 일반 교차로 명령 노드인 경우
+                    if (!visited.has(key)) {
+                        delete boardCommands[key];
+                    }
+                }
+            });
+
+            traceResults = { path, visited, entryDirs, warnings, activeSegments, segmentDirs };
+            initMap();
+        }
+
+        function renderGuides() {
+            const container = document.getElementById('guidesLayer');
+            container.innerHTML = '';
+            for (let r = 0; r < 4; r++) {
+                for (let c = 0; c < 6; c++) {
+                    const x = getCoordPercent(c, 'x');
+                    const y = getCoordPercent(r, 'y');
+                    const dot = document.createElement('div');
+                    dot.className = "absolute rounded-full bg-white/40 border border-slate-900/10 shadow-sm pointer-events-none";
+                    dot.style.left = `calc(${x}% - 6px)`;
+                    dot.style.top = `calc(${y}% - 6px)`;
+                    dot.style.width = "12px";
+                    dot.style.height = "12px";
+                    container.appendChild(dot);
+                }
+            }
+        }
+
+        function renderActivePath() {
+            const layer = document.getElementById('activePathLayer');
+            layer.innerHTML = '';
+
+            traceResults.activeSegments.forEach(segKey => {
+                const parts = segKey.split(',');
+                const r = Number(parts[1]);
+                const c = Number(parts[2]);
+
+                let startX, startY, endX, endY;
+
+                if (Number.isInteger(r)) {
+                    const leftCol = Math.floor(c);
+                    const rightCol = Math.ceil(c);
+                    startX = getCoordPercent(leftCol, 'x');
+                    startY = getCoordPercent(r, 'y');
+                    endX = getCoordPercent(rightCol, 'x');
+                    endY = getCoordPercent(r, 'y');
+                } else {
+                    const topRow = Math.floor(r);
+                    const bottomRow = Math.ceil(r);
+                    startX = getCoordPercent(c, 'x');
+                    startY = getCoordPercent(topRow, 'y');
+                    endX = getCoordPercent(c, 'x');
+                    endY = getCoordPercent(bottomRow, 'y');
+                }
+
+                const lineGlow = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                lineGlow.setAttribute("x1", `${startX}%`);
+                lineGlow.setAttribute("y1", `${startY}%`);
+                lineGlow.setAttribute("x2", `${endX}%`);
+                lineGlow.setAttribute("y2", `${endY}%`);
+                lineGlow.setAttribute("stroke", "#10b981");
+                lineGlow.setAttribute("stroke-linecap", "round");
+                lineGlow.setAttribute("stroke-width", "14");
+                lineGlow.setAttribute("class", "glowing-path");
+                lineGlow.setAttribute("opacity", "0.45");
+                
+                const lineCore = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                lineCore.setAttribute("x1", `${startX}%`);
+                lineCore.setAttribute("y1", `${startY}%`);
+                lineCore.setAttribute("x2", `${endX}%`);
+                lineCore.setAttribute("y2", `${endY}%`);
+                lineCore.setAttribute("stroke", "#34d399");
+                lineCore.setAttribute("stroke-width", "6");
+                lineCore.setAttribute("stroke-linecap", "round");
+                lineCore.setAttribute("opacity", "0.95");
+
+                layer.appendChild(lineGlow);
+                layer.appendChild(lineCore);
+            });
+        }
+
+        // [비주얼 대격변: 실제 좌/우 도로 표지판 형태의 수학적 직각 90도 화살표 설계 및 좌우 고대비 색상 분리]
+        // 이미지 image_924fe5.png 의 빨간 원형 테두리 표지판 느낌을 고대비 감성으로 탑재했습니다.
+        // 특수아동을 위해 좌회전은 빨간색 테두리+살구색바탕, 우회전은 파란색 테두리+하늘색바탕으로 전폭 분할하여 구분이 1초 만에 완료됩니다.
+        function getTurnSvg(type, entryDir) {
+            let baseAngle = 0;
+            if (entryDir === "Down") baseAngle = 90;
+            else if (entryDir === "Left") baseAngle = 180;
+            else if (entryDir === "Up") baseAngle = 270;
+
+            const isLeft = (type === 'left');
+            const borderCol = isLeft ? '#ef4444' : '#0284c7';
+            const bgCol = isLeft ? '#fee2e2' : '#e0f2fe';
+            const arrowCol = '#1e293b'; // 고해상도 차콜 블랙 화살표
+
+            let arrowElements = "";
+            if (isLeft) {
+                // Enters from Left (18, 50), goes horizontally to (50, 50), then turns 90 degrees straight UP to (50, 24).
+                arrowElements = `
+                    <circle cx="18" cy="50" r="4.5" fill="#ffffff" stroke="none" />
+                    <path d="M 18 50 L 50 50 L 50 24" fill="none" stroke="${arrowCol}" stroke-width="11" stroke-linecap="square" stroke-linejoin="miter"/>
+                    <!-- UP Arrowhead -->
+                    <path d="M 34 38 L 50 20 L 66 38" fill="none" stroke="${arrowCol}" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+                `;
+            } else {
+                // Enters from Left (18, 50), goes horizontally to (50, 50), then turns 90 degrees straight DOWN to (50, 76).
+                arrowElements = `
+                    <circle cx="18" cy="50" r="4.5" fill="#ffffff" stroke="none" />
+                    <path d="M 18 50 L 50 50 L 50 76" fill="none" stroke="${arrowCol}" stroke-width="11" stroke-linecap="square" stroke-linejoin="miter"/>
+                    <!-- DOWN Arrowhead -->
+                    <path d="M 34 62 L 50 80 L 66 62" fill="none" stroke="${arrowCol}" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+                `;
+            }
+
+            return `
+                <svg viewBox="0 0 100 100" class="w-full h-full drop-shadow-lg" style="transform: rotate(${baseAngle}deg); transform-origin: 50% 50%;">
+                    <!-- 실물 가이드 점선 라인과 외곽 서클 테두리 마감 -->
+                    <circle cx="50" cy="50" r="42" fill="${bgCol}" stroke="${borderCol}" stroke-width="7"/>
+                    <circle cx="50" cy="50" r="38" fill="none" stroke="#ffffff" stroke-width="1.5" stroke-dasharray="3,3" opacity="0.5"/>
+                    ${arrowElements}
+                </svg>
+            `;
+        }
+
+        function renderCommands() {
+            const container = document.getElementById('commandsLayer');
+            container.innerHTML = '';
+            
+            Object.keys(boardCommands).forEach(key => {
+                const val = boardCommands[key];
+                if (!val) return; 
+
+                if (key.startsWith("segment")) {
+                    const parts = key.split(',');
+                    const r = Number(parts[1]);
+                    const c = Number(parts[2]);
+                    const x = getCoordPercent(c, 'x');
+                    const y = getCoordPercent(r, 'y');
+                    const isHorizontal = Number.isInteger(r); 
+
+                    const div = document.createElement('div');
+                    div.className = "absolute z-30 pointer-events-none animate-[pop_0.15s_ease-out]";
+                    
+                    let drawDir = isHorizontal ? "Right" : "Up";
+                    let isTraversed = false;
+                    if (traceResults.segmentDirs && traceResults.segmentDirs[key]) {
+                        drawDir = traceResults.segmentDirs[key];
+                        isTraversed = true;
+                    }
+
+                    if (isHorizontal) {
+                        div.style.left = `calc(${x}% - 22px)`;
+                        div.style.top = `calc(${y}% - 14px)`;
+                        div.style.width = "44px";
+                        div.style.height = "28px";
+                        let arrowPath = isTraversed ? 
+                            (drawDir === "Right" ? `<path d="M20 30 L80 30 M60 12 L80 30 L60 48" fill="none" stroke="#ffffff" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>` : `<path d="M80 30 L20 30 M40 12 L20 30 L40 48" fill="none" stroke="#ffffff" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>`) :
+                            `<path d="M20 30 L80 30 M40 12 L20 30 L40 48 M60 12 L80 30 L60 48" fill="none" stroke="#ffffff" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>`;
+                        div.innerHTML = `<svg viewBox="0 0 100 60" class="w-full h-full drop-shadow"><rect width="100" height="60" rx="30" fill="url(#grad-straight)" stroke="#ffffff" stroke-width="8"/>${arrowPath}</svg>`;
+                    } else {
+                        div.style.left = `calc(${x}% - 14px)`;
+                        div.style.top = `calc(${y}% - 22px)`;
+                        div.style.width = "28px";
+                        div.style.height = "44px";
+                        let arrowPath = isTraversed ? 
+                            (drawDir === "Up" ? `<path d="M30 80 L30 20 M12 40 L30 20 L48 40" fill="none" stroke="#ffffff" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>` : `<path d="M30 20 L30 80 M12 60 L30 80 L48 60" fill="none" stroke="#ffffff" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>`) :
+                            `<path d="M30 20 L30 80 M12 40 L30 20 L48 40 M12 60 L30 80 L48 60" fill="none" stroke="#ffffff" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>`;
+                        div.innerHTML = `<svg viewBox="0 0 60 100" class="w-full h-full drop-shadow"><rect width="60" height="100" rx="30" fill="url(#grad-straight)" stroke="#ffffff" stroke-width="8"/>${arrowPath}</svg>`;
+                    }
+                    container.appendChild(div);
+                } else {
+                    const parts = key.split(',').map(Number);
+                    const x = getCoordPercent(parts[1], 'x');
+                    const y = getCoordPercent(parts[0], 'y');
+                    let entryDir = traceResults.entryDirs[key] || "Right";
+
+                    const div = document.createElement('div');
+                    const isPassed = traceResults.visited.has(key);
+                    div.className = `absolute z-30 pointer-events-none transition-all duration-300 animate-[pop_0.2s_ease-out] ${isPassed ? '' : 'opacity-40'}`;
+                    div.style.left = `calc(${x}% - 22px)`;
+                    div.style.top = `calc(${y}% - 22px)`;
+                    div.style.width = "44px";
+                    div.style.height = "44px";
+                    div.innerHTML = getTurnSvg(val, entryDir);
+                    container.appendChild(div);
+                }
+            });
+        }
+
+        function renderHazards() {
+            const container = document.getElementById('hazardsLayer');
+            container.innerHTML = '';
+            Object.keys(hazards).forEach(key => {
+                const parts = key.split(',').map(Number);
+                const x = getCoordPercent(parts[1], 'x');
+                const y = getCoordPercent(parts[0], 'y');
+                const div = document.createElement('div');
+                div.className = "absolute fire-sprite z-20 pointer-events-none";
+                div.style.left = `calc(${x}% - 24px)`;
+                div.style.top = `calc(${y}% - 26px)`;
+                div.style.width = "48px";
+                div.style.height = "48px";
+                div.innerHTML = `
+                    <svg viewBox="0 0 100 100" class="w-full h-full drop-shadow-lg">
+                        <path d="M50 2 C15 35 25 72 50 96 C75 72 85 35 50 2 Z" fill="url(#grad-fire-outer)" stroke="#7f1d1d" stroke-width="2"/>
+                        <path d="M50 22 C30 48 38 72 50 96 C62 72 70 48 50 22 Z" fill="url(#grad-fire-mid)"/>
+                        <path d="M50 44 C38 62 44 80 50 96 C56 80 62 62 50 44 Z" fill="url(#grad-fire-inner)"/>
+                        <circle cx="50" cy="80" r="7" fill="#ffffff" opacity="0.8"/>
+                    </svg>`;
+                container.appendChild(div);
+            });
+        }
+
+        function renderTreasures(targetList = treasures) {
+            const container = document.getElementById('treasureLayer');
+            container.innerHTML = '';
+            Object.keys(treasures).forEach(key => {
+                const parts = key.split(',').map(Number);
+                const x = getCoordPercent(parts[1], 'x');
+                const y = getCoordPercent(parts[0], 'y');
+                const div = document.createElement('div');
+                div.className = "absolute z-20 pointer-events-none animate-[pop_0.2s_ease-out]";
+                div.style.left = `calc(${x}% - 24px)`;
+                div.style.top = `calc(${y}% - 24px)`;
+                div.style.width = "48px";
+                div.style.height = "48px";
+                
+                if (isSimulating && !targetList[key]) {
+                    div.style.opacity = "0.2"; div.style.transform = "scale(0.8)";
+                    div.innerHTML = `<svg viewBox="0 0 100 100" class="w-full h-full"><rect x="14" y="35" width="72" height="50" rx="8" fill="#475569" stroke="#1e293b" stroke-width="4"/></svg>`;
+                } else {
+                    div.innerHTML = `
+                        <div class="relative w-full h-full">
+                            <svg viewBox="0 0 100 100" class="w-full h-full drop-shadow-md">
+                                <path d="M 12 36 L 12 18 C 12 18, 18 8, 26 16 L 26 36 Z" fill="#b91c1c" stroke="#1e293b" stroke-width="2"/>
+                                <path d="M 88 36 L 88 18 C 88 18, 82 8, 74 16 L 74 36 L 74 36 Z" fill="#b91c1c" stroke="#1e293b" stroke-width="2"/>
+                                <path d="M 12 18 Q 50 -8 88 18 L 88 28 Q 50 8 12 28 Z" fill="#92400e" stroke="#1e293b" stroke-width="3" stroke-linejoin="round"/>
+                                <ellipse cx="50" cy="38" rx="34" ry="12" fill="#eab308" stroke="#ca8a04" stroke-width="1.5"/>
+                                <circle cx="36" cy="38" r="6" fill="#fde047" stroke="#ca8a04" stroke-width="1"/><circle cx="50" cy="35" r="8" fill="#fef08a" stroke="#ca8a04" stroke-width="2"/><circle cx="64" cy="38" r="6" fill="#fde047" stroke="#ca8a04" stroke-width="1"/>
+                                <rect x="12" y="38" width="76" height="48" rx="8" fill="#78350f" stroke="#1e293b" stroke-width="4"/>
+                                <rect x="12" y="38" width="14" height="48" fill="#fbbf24" stroke="#1e293b" stroke-width="2"/><rect x="74" y="38" width="14" height="48" fill="#fbbf24" stroke="#1e293b" stroke-width="2"/>
+                                <rect x="44" y="32" width="12" height="24" fill="#fbbf24" stroke="#1e293b" stroke-width="2" rx="4"/><circle cx="50" cy="46" r="4" fill="#d97706" stroke="#1e293b" stroke-width="1.5"/>
+                            </svg>
+                            <div class="absolute -top-4 -right-4 text-yellow-400 text-2xl star-item"><i class="fa-solid fa-star"></i></div>
+                        </div>`;
+                }
+                container.appendChild(div);
+            });
+        }
+
+        function positionRobotAtStart() {
+            const robot = document.getElementById('robot');
+            const x = getCoordPercent(startCol, 'x'); 
+            const y = getCoordPercent(startRow, 'y'); 
+            robot.style.left = `calc(${x}% - 30px)`;
+            robot.style.top = `calc(${y}% - 30px)`;
+            
+            let hasUp = boardCommands["segment,2.5,0"] === 'straight';
+            let startDir = hasUp ? "Up" : "Right";
+            currentAngle = startDir === "Up" ? -90 : 0; 
+            
+            // [정합 주행 가드] 로봇의 회전 중심점을 교정하여 몸체 축 이탈 현상 해결
+            const chassis = document.getElementById('robot-chassis');
+            if (chassis) {
+                chassis.style.transform = `rotate(${currentAngle}deg)`;
+            }
+        }
+
+        function updateButtonStates() {
+            const btnStart = document.getElementById('btn-start');
+            const toolFire = document.getElementById('tool-fire');
+            const toolTreasure = document.getElementById('tool-treasure');
+            const btnClear = document.getElementById('btn-clear');
+            const activeBtnClass = "hover:translate-y-[1px] hover:shadow-[1px_1px_0px_#0f172a] active:translate-y-[3px] active:shadow-none cursor-pointer border-slate-900 shadow-[3px_3px_0px_#0f172a]";
+            const disabledBtnClass = "opacity-35 cursor-not-allowed border-slate-300 shadow-none translate-y-0";
+
+            [btnStart, toolFire, toolTreasure, btnClear].forEach(b => b.disabled = isSimulating);
+            if (isSimulating) {
+                btnStart.className = `flex items-center bg-slate-200 text-slate-400 ${disabledBtnClass} p-1.5 md:p-2.5 rounded-xl border-4 font-jua text-base md:text-xl`;
+                toolFire.className = `flex items-center bg-slate-200 text-slate-400 ${disabledBtnClass} p-1.5 md:p-2.5 rounded-xl border-4 font-jua text-base md:text-xl`;
+                toolTreasure.className = `flex items-center bg-slate-200 text-slate-400 ${disabledBtnClass} p-1.5 md:p-2.5 rounded-xl border-4 font-jua text-base md:text-xl`;
+                return;
+            }
+
+            btnStart.className = `flex items-center bg-indigo-600 text-white ${activeBtnClass} p-1.5 md:p-2.5 rounded-xl border-4 font-jua text-base md:text-xl`;
+            toolFire.className = (selectedTool === 'tool-fire') ? 
+                `flex items-center bg-rose-500 text-white scale-105 ring-4 ring-red-300 p-1.5 md:p-2.5 rounded-xl border-4 font-jua text-base md:text-xl shadow-[3px_3px_0px_#0f172a]` :
+                `flex items-center bg-rose-500 text-white ${activeBtnClass} p-1.5 md:p-2.5 rounded-xl border-4 font-jua text-base md:text-xl`;
+            toolTreasure.className = (selectedTool === 'tool-treasure') ? 
+                `flex items-center bg-teal-600 text-white scale-105 ring-4 ring-teal-300 p-1.5 md:p-2.5 rounded-xl border-4 font-jua text-base md:text-xl shadow-[3px_3px_0px_#0f172a]` :
+                `flex items-center bg-teal-600 text-white ${activeBtnClass} p-1.5 md:p-2.5 rounded-xl border-4 font-jua text-base md:text-xl`;
+            
+            btnStart.disabled = (selectedTool === 'tool-treasure');
+            if(selectedTool === 'tool-treasure') btnStart.className = `flex items-center bg-slate-200 text-slate-400 ${disabledBtnClass} p-1.5 md:p-2.5 rounded-xl border-4 font-jua text-base md:text-xl`;
+        }
+
+        function selectTool(toolId) {
+            if (isSimulating) return;
+            selectedTool = (selectedTool === toolId) ? null : toolId;
+            playPopSound();
+            updateButtonStates();
+            renderClickAnchors();
+            updateAnalysisMessage();
+        }
+
+        // [핵심 변경: 흐름판 뱃지 이모지 제거 -> 실시간 고대비 인지 치료용 SVG로 전원 치환]
+        function renderCompactAlgorithmBadges(activeSimIndex = -1) {
+            const flowContainer = document.getElementById('flowCardsContainer');
+            if (!flowContainer) return; flowContainer.innerHTML = '';
+            
+            let cardDataList = [{ 
+                type: 'start', 
+                icon: `<svg viewBox="0 0 100 100" class="w-6 h-6"><text y="75" x="15" font-size="70">🚀</text></svg>`, 
+                bg: 'bg-indigo-600 text-white border-indigo-700', 
+                stepIndex: 0 
+            }];
+            
+            let pathNodes = traceResults.path || [];
+            
+            for (let i = 1; i < pathNodes.length; i++) {
+                const key = `${pathNodes[i].r},${pathNodes[i].c}`;
+                
+                // 직진 (초록색 표지판 스타일)
+                cardDataList.push({ 
+                    type: 'move', 
+                    icon: `<svg viewBox="0 0 100 100" class="w-6 h-6"><circle cx="50" cy="50" r="42" fill="#e6f4ea" stroke="#10b981" stroke-width="8"/><path d="M 50 80 L 50 20 M 35 38 L 50 18 L 65 38" fill="none" stroke="#10b981" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/></svg>`, 
+                    bg: 'bg-emerald-500 text-white border-emerald-600', 
+                    stepIndex: i * 2 - 1 
+                });
+                
+                // 보물상자
+                if (treasures[key]) {
+                    cardDataList.push({ 
+                        type: 'treasure', 
+                        icon: `<svg viewBox="0 0 100 100" class="w-6 h-6"><text y="75" x="15" font-size="70">💎</text></svg>`, 
+                        bg: 'bg-teal-600 text-white border-teal-700 animate-bounce', 
+                        stepIndex: i * 2 
+                    });
+                }
+                
+                // 불길 장애물
+                if (hazards[key]) {
+                    cardDataList.push({ 
+                        type: 'hazard', 
+                        icon: `<svg viewBox="0 0 100 100" class="w-6 h-6"><text y="75" x="15" font-size="70">🔥</text></svg>`, 
+                        bg: 'bg-rose-500 text-white border-rose-600', 
+                        stepIndex: i * 2 
+                    });
+                }
+                
+                // 회전 지시 (상대 회전 방향이 절대 회전판 모양으로 고대비 각인되어 출력됨)
+                const cmd = boardCommands[key];
+                if (cmd === 'left') {
+                    cardDataList.push({ 
+                        type: 'left', 
+                        icon: `<svg viewBox="0 0 100 100" class="w-6 h-6"><circle cx="50" cy="50" r="42" fill="#fee2e2" stroke="#ef4444" stroke-width="8"/><path d="M 72 70 L 72 45 L 32 45" fill="none" stroke="#1e293b" stroke-width="12" stroke-linecap="square" stroke-linejoin="miter"/><path d="M 47 30 L 27 45 L 47 60" fill="none" stroke="#1e293b" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/></svg>`, 
+                        bg: 'bg-rose-500 text-white border-rose-600', 
+                        stepIndex: i * 2 
+                    });
+                } else if (cmd === 'right') {
+                    cardDataList.push({ 
+                        type: 'right', 
+                        icon: `<svg viewBox="0 0 100 100" class="w-6 h-6"><circle cx="50" cy="50" r="42" fill="#e0f2fe" stroke="#0284c7" stroke-width="8"/><path d="M 28 70 L 28 45 L 68 45" fill="none" stroke="#1e293b" stroke-width="12" stroke-linecap="square" stroke-linejoin="miter"/><path d="M 53 30 L 73 45 L 53 60" fill="none" stroke="#1e293b" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/></svg>`, 
+                        bg: 'bg-sky-500 text-white border-sky-600', 
+                        stepIndex: i * 2 
+                    });
+                }
+            }
+            
+            if (cardDataList.length === 1) {
+                flowContainer.innerHTML = `<div class="text-slate-400 text-xs font-jua py-2 w-full text-center">교차로를 터치해 회전 명령을 내리면 알고리즘 순서가 실시간으로 나타나요!</div>`;
+                return;
+            }
+
+            cardDataList.forEach((card, index) => {
+                const badgeDiv = document.createElement('div');
+                let isHighlight = (activeSimIndex !== -1 && card.stepIndex === activeSimIndex);
+                badgeDiv.className = `flex-shrink-0 w-9 h-9 rounded-xl border-2 flex items-center justify-center transition-all duration-300 ${card.bg} ${(activeSimIndex === -1 || isHighlight) ? 'opacity-100 scale-100' : 'opacity-40 scale-90'} ${isHighlight ? 'ring-4 ring-yellow-400' : ''}`;
+                badgeDiv.innerHTML = card.icon; flowContainer.appendChild(badgeDiv);
+                if (index < cardDataList.length - 1) {
+                    const arrow = document.createElement('div');
+                    arrow.className = `flex-shrink-0 text-slate-400 text-[10px] px-0.5 ${(activeSimIndex === -1 || (activeSimIndex >= card.stepIndex)) ? 'opacity-100' : 'opacity-30'}`;
+                    arrow.innerHTML = '<i class="fa-solid fa-chevron-right"></i>'; flowContainer.appendChild(arrow);
+                }
+            });
+        }
+
+        function renderClickAnchors() {
+            const container = document.getElementById('anchorsLayer'); container.innerHTML = '';
+            if (isSimulating) return;
+
+            // 가로 세그먼트 앵커 생성
+            for (let r = 0; r < 4; r++) { 
+                for (let c = 0.5; c < 5; c++) {
+                    createSegmentAnchor(r, c, container); 
+                }
+            }
+            // 세로 세그먼트 앵커 생성 루프 범위 복구
+            for (let r = 0; r < 3; r += 0.5) { 
+                if (Number.isInteger(r)) continue;
+                for (let c = 0; c < 6; c++) {
+                    createSegmentAnchor(r, c, container); 
+                }
+            }
+
+            for (let r = 0; r < 4; r++) {
+                for (let c = 0; c < 6; c++) {
+                    if (r === 3 && c === 0) continue;
+                    const x = getCoordPercent(c, 'x'); const y = getCoordPercent(r, 'y'); const key = `${r},${c}`;
+                    const anchor = document.createElement('button');
+                    anchor.className = "absolute rounded-full flex items-center justify-center z-30 pointer-events-auto w-12 h-12";
+                    anchor.style.left = `calc(${x}% - 24px)`; anchor.style.top = `calc(${y}% - 24px)`;
+                    let warningHtml = `<div class="w-10 h-10 rounded-full border-4 border-dashed border-slate-400/20 hover:border-slate-500 transition"></div>`;
+                    
+                    // 각 경고 코드별 알맞은 폰트어썸 아이콘 매핑 완료
+                    if (traceResults.warnings[key] === "branch") {
+                        warningHtml = `<div class="relative w-11 h-11 flex items-center justify-center"><div class="absolute inset-0 rounded-full bg-rose-500 warning-ring opacity-60"></div><div class="relative w-8 h-8 rounded-full bg-rose-600 border-2 border-white flex items-center justify-center text-white text-xs shadow-md"><i class="fa-solid fa-triangle-exclamation"></i></div></div>`;
+                    } else if (traceResults.warnings[key] === "invalid_turn_no_road") {
+                        warningHtml = `<div class="relative w-11 h-11 flex items-center justify-center"><div class="absolute inset-0 rounded-full bg-amber-500 warning-ring opacity-60"></div><div class="relative w-8 h-8 rounded-full bg-amber-500 border-2 border-white flex items-center justify-center text-white text-xs shadow-md"><i class="fa-solid fa-road-barrier"></i></div></div>`;
+                    } else if (traceResults.warnings[key] === "loop") {
+                        // [순환 경고 시각화] 무한루프 발생 교차로에 어울리는 보라색 순환 아이콘 탑재
+                        warningHtml = `<div class="relative w-11 h-11 flex items-center justify-center"><div class="absolute inset-0 rounded-full bg-indigo-500 warning-ring opacity-60"></div><div class="relative w-8 h-8 rounded-full bg-indigo-600 border-2 border-white flex items-center justify-center text-white text-xs shadow-md"><i class="fa-solid fa-arrows-spin"></i></div></div>`;
+                    }
+                    anchor.innerHTML = warningHtml; anchor.onclick = () => handleIntersectionClick(r, c, key);
+                    container.appendChild(anchor);
+                }
+            }
+        }
+
+        function createSegmentAnchor(r, c, container) {
+            const x = getCoordPercent(c, 'x'); const y = getCoordPercent(r, 'y'); const key = `segment,${r},${c}`;
+            const isHorizontal = Number.isInteger(r);
+            const anchor = document.createElement('button');
+            anchor.className = "absolute flex items-center justify-center z-30 pointer-events-auto " + (isHorizontal ? "w-12 h-8" : "w-8 h-12");
+            anchor.style.left = isHorizontal ? `calc(${x}% - 24px)` : `calc(${x}% - 16px)`;
+            anchor.style.top = isHorizontal ? `calc(${y}% - 16px)` : `calc(${y}% - 24px)`;
+            anchor.innerHTML = isHorizontal ? `<div class="w-10 h-6 rounded-md border-2 border-dashed border-emerald-500/20 hover:border-emerald-500 transition"></div>` : `<div class="w-6 h-10 rounded-md border-2 border-dashed border-emerald-500/20 hover:border-emerald-500 transition"></div>`;
+            anchor.onclick = () => {
+                if (selectedTool === 'tool-treasure') return;
+
+                // [어려움 모드 직선/회전 방향 불일치 배치 차단 가드]
+                // 이미 교차로의 회전방향(좌/우)이 명확히 결정되어 있고, 클릭하는 도로의 방향이
+                // 설정된 회전 지시 혹은 진입 방향과 다를 경우 경고를 하고 직진 길 배치를 물리 차단합니다.
+                if (currentMode === 'hard') {
+                    let willBeStraight = (boardCommands[key] !== 'straight');
+                    if (willBeStraight) {
+                        let nodeA, nodeB;
+                        if (isHorizontal) {
+                            let leftCol = Math.floor(c);
+                            let rightCol = Math.ceil(c);
+                            nodeA = { r: r, c: leftCol };
+                            nodeB = { r: r, c: rightCol };
+                        } else {
+                            let topRow = Math.floor(r);
+                            let bottomRow = Math.ceil(r);
+                            nodeA = { r: topRow, c: c };
+                            nodeB = { r: bottomRow, c: c };
+                        }
+
+                        // Node A 지점의 회전 방향 검증
+                        let keyA = `${nodeA.r},${nodeA.c}`;
+                        if (traceResults.visited.has(keyA)) {
+                            let entryDir = traceResults.entryDirs[keyA];
+                            let oppDir = uTurnMap[entryDir];
+                            let cmd = boardCommands[keyA];
+                            if (cmd === 'left' || cmd === 'right') {
+                                let allowedDir = cmd === 'left' ? turnLeftMap[entryDir] : turnRightMap[entryDir];
+                                let dirFromA;
+                                if (nodeB.r < nodeA.r) dirFromA = "Up";
+                                else if (nodeB.r > nodeA.r) dirFromA = "Down";
+                                else if (nodeB.c < nodeA.c) dirFromA = "Left";
+                                else if (nodeB.c > nodeA.c) dirFromA = "Right";
+
+                                if (dirFromA !== allowedDir && dirFromA !== oppDir) {
+                                    showWarning(`⚠️ 설정된 회전 방향(${cmd === 'left' ? '좌회전' : '우회전'})과 다른 방향의 길은 연결할 수 없어요!`);
+                                    return;
+                                }
+                            }
+                        }
+
+                        // Node B 지점의 회전 방향 검증
+                        let keyB = `${nodeB.r},${nodeB.c}`;
+                        if (traceResults.visited.has(keyB)) {
+                            let entryDir = traceResults.entryDirs[keyB];
+                            let oppDir = uTurnMap[entryDir];
+                            let cmd = boardCommands[keyB];
+                            if (cmd === 'left' || cmd === 'right') {
+                                let allowedDir = cmd === 'left' ? turnLeftMap[entryDir] : turnRightMap[entryDir];
+                                let dirFromB;
+                                if (nodeA.r < nodeB.r) dirFromB = "Up";
+                                else if (nodeA.r > nodeB.r) dirFromB = "Down";
+                                else if (nodeA.c < nodeB.c) dirFromB = "Left";
+                                else if (nodeA.c > nodeB.c) dirFromB = "Right";
+
+                                if (dirFromB !== allowedDir && dirFromB !== oppDir) {
+                                    showWarning(`⚠️ 설정된 회전 방향(${cmd === 'left' ? '좌회전' : '우회전'})과 다른 방향의 길은 연결할 수 없어요!`);
+                                    return;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                boardCommands[key] = (boardCommands[key] === 'straight') ? null : 'straight';
+                playTone(boardCommands[key] ? 660 : 440, 'sine', 0.1);
+                runAnalysis();
+            };
+            container.appendChild(anchor);
+        }
+
+        function handleIntersectionClick(r, c, key) {
+            if (treasures[key]) {
+                delete treasures[key]; playTone(587.33, 'sine', 0.12);
+                selectedTool = 'tool-treasure'; runAnalysis(); return;
+            }
+            if (selectedTool === 'tool-fire') {
+                if (hazards[key]) delete hazards[key];
+                else { delete treasures[key]; delete boardCommands[key]; hazards[key] = true; }
+                playTone(660, 'sine', 0.15); runAnalysis(); return;
+            }
+            if (selectedTool === 'tool-treasure') {
+                delete hazards[key]; delete boardCommands[key]; treasures[key] = true;
+                playTone(783.99, 'sine', 0.15); selectedTool = null; runAnalysis(); return;
+            }
+            if (hazards[key]) { showWarning("⚠️ 불길 장애물이 배치된 교차로에는 회전 명령을 둘 수 없어요!"); return; }
+
+            // [순차 연결 규칙 완벽 복원] 출발지로부터 한붓그리기로 이어진 활성 노드가 아닌 경우 터치 입력 즉각 차단
+            if (!traceResults.visited.has(key)) { 
+                showWarning("⚠️ 출발지에서부터 초록색 길이 연결된 곳에만 회전 지시를 내릴 수 있어요!"); 
+                return; 
+            }
+
+            // [쉬움 모드 전용 터치 필터링]
+            if (currentMode === 'easy') {
+                showWarning("🟢 쉬움 모드에서는 길만 터치하면 회전 화살표가 자동으로 생겨요! 보통 모드에서 터치해 보세요.");
+                return;
+            }
+
+            // [어려움 모드 수동 코딩 및 물리적 90도 회전 진출 제약 계산 메커니즘]
+            // 특정 진입 축에 따라 좌회전 또는 우회전만 물리적으로 선택되어야 하는 지형 경계를 연산하여 한 방향만 활성화해 줍니다.
+            if (currentMode === 'hard') {
+                let entryDir = traceResults.entryDirs[key] || "Right";
+                let leftDir = turnLeftMap[entryDir];
+                let rightDir = turnRightMap[entryDir];
+                
+                let leftR = r + directions[leftDir].r;
+                let leftC = c + directions[leftDir].c;
+                let canLeft = (leftR >= 0 && leftR < 4 && leftC >= 0 && leftC < 6);
+                
+                let rightR = r + directions[rightDir].r;
+                let rightC = c + directions[rightDir].c;
+                let canRight = (rightR >= 0 && rightR < 4 && rightC >= 0 && rightC < 6);
+                
+                const currentCmd = boardCommands[key];
+                let nextCmd = null;
+                
+                // 만약 특정 진입에서 사방이 막혀 아예 회전이 불가능한 경우 가드
+                if (!canLeft && !canRight && !currentCmd) {
+                    showWarning("⚠️ 이 교차로에서는 회전할 수 있는 유효한 방향이 없습니다!");
+                    return;
+                }
+
+                // 가용성 맵핑에 따라 물리적으로 진출이 불가한 경계의 명령어를 자동으로 스킵하여 토글 연동
+                if (!currentCmd) {
+                    if (canLeft) nextCmd = 'left';
+                    else if (canRight) nextCmd = 'right';
+                } else if (currentCmd === 'left') {
+                    if (canRight) nextCmd = 'right';
+                    else nextCmd = null;
+                } else if (currentCmd === 'right') {
+                    nextCmd = null;
+                }
+                
+                if (nextCmd === null) {
+                    delete boardCommands[key];
+                    playTone(440, 'sine', 0.1);
+                } else {
+                    boardCommands[key] = nextCmd;
+                    playTone(660, 'sine', 0.1);
+                }
+                
+                runAnalysis();
+                return;
+            }
+
+            // [보통 모드 지능형 교차로 스티어링 시스템 구현]
+            let entryDir = traceResults.entryDirs[key] || "Right";
+            let oppDir = uTurnMap[entryDir];
+            const currentCmd = boardCommands[key];
+            
+            let nextCmd = null;
+            if (!currentCmd) {
+                nextCmd = 'left';
+            } else if (currentCmd === 'left') {
+                nextCmd = 'right';
+            } else {
+                nextCmd = null;
+            }
+
+            // 진입 방향을 제외한 나머지 모든 진출 방향 세그먼트(길)를 깔끔하게 일시 초기화하여 잔여 갈림길 방지
+            const outgoingDirs = ["Up", "Right", "Down", "Left"].filter(d => d !== oppDir);
+            outgoingDirs.forEach(d => {
+                let nR = r + directions[d].r;
+                let nC = c + directions[d].c;
+                let segKey = `segment,${(r + nR) / 2},${(c + nC) / 2}`;
+                delete boardCommands[segKey];
+            });
+
+            // 선택된 명령어 타입에 따라 알맞은 길을 자동 개설 및 교차로 코딩 블록 설정
+            if (nextCmd === 'left') {
+                let leftDir = turnLeftMap[entryDir];
+                let nR = r + directions[leftDir].r;
+                let nC = c + directions[leftDir].c;
+                if (nR >= 0 && nR < 4 && nC >= 0 && nC < 6) {
+                    let segKey = `segment,${(r + nR) / 2},${(c + nC) / 2}`;
+                    boardCommands[segKey] = 'straight';
+                    boardCommands[key] = 'left';
+                } else {
+                    nextCmd = 'right'; // 왼쪽이 경계 밖이면 자동 스킵
+                }
+            }
+
+            if (nextCmd === 'right') {
+                let rightDir = turnRightMap[entryDir];
+                let nR = r + directions[rightDir].r;
+                let nC = c + directions[rightDir].c;
+                if (nR >= 0 && nR < 4 && nC >= 0 && nC < 6) {
+                    let segKey = `segment,${(r + nR) / 2},${(c + nC) / 2}`;
+                    boardCommands[segKey] = 'straight';
+                    boardCommands[key] = 'right';
+                } else {
+                    nextCmd = null; // 우회전도 불가능하면 초기화 스킵
+                }
+            }
+
+            // 회전 명령이 해제(직진)되었을 경우, 앞으로 나가는 직진 세그먼트를 자동으로 생성
+            if (nextCmd === null) {
+                delete boardCommands[key];
+                let straightDir = entryDir;
+                let nR = r + directions[straightDir].r;
+                let nC = c + directions[straightDir].c;
+                if (nR >= 0 && nR < 4 && nC >= 0 && nC < 6) {
+                    let segKey = `segment,${(r + nR) / 2},${(c + nC) / 2}`;
+                    boardCommands[segKey] = 'straight';
+                }
+            }
+
+            playTone(660, 'sine', 0.1); 
+            runAnalysis();
+        }
+
+        function updateAnalysisMessage() {
+            const msgEl = document.getElementById('systemMessage'); if (!msgEl) return;
+            if (selectedTool === 'tool-treasure') { msgEl.innerHTML = "💎 <span class='text-teal-600 font-bold'>[보물 배치]</span> 지도의 교차로를 터치하여 보물상자(<svg viewBox='0 0 100 100' class='inline-block w-5 h-5 align-middle'><path d='M 12 36 L 12 18 C 12 18, 18 8, 26 16 L 26 36 Z' fill='#b91c1c'/><path d='M 88 36 L 88 18 C 88 18, 82 8, 74 16 L 74 36 Z' fill='#b91c1c'/><path d='M 12 18 Q 50 -8 88 18 L 88 28 Q 50 8 12 28 Z' fill='#92400e'/><rect x='12' y='38' width='76' height='48' rx='8' fill='#78350f'/><rect x='12' y='38' width='14' height='48' fill='#fbbf24'/><rect x='74' y='38' width='14' height='48' fill='#fbbf24'/><rect x='44' y='32' width='12' height='24' fill='#fbbf24' rx='4'/></svg>)를 올려두세요."; return; }
+            if (selectedTool === 'tool-fire') { msgEl.innerHTML = "🔥 <span class='text-red-500 font-bold'>[불길 배치]</span> 지도의 교차로를 터치하여 장애물을 설치하세요."; return; }
+            if (Object.keys(treasures).length === 0) { msgEl.innerHTML = "💎 <span class='text-teal-500 font-bold'>[보물 배치 필요]</span> 지도를 터치해 보물상자를 올려놓으세요!"; return; }
+
+            // 현재 가용 모드별 힌트 메커니즘 차별화 출력
+            let modeBadge = currentMode === 'easy' ? "🟢 [쉬움 한붓그리기]" : (currentMode === 'normal' ? "🔵 [보통 자동스티어링]" : "🔴 [어려움 완전수동]");
+
+            let errorKeys = Object.keys(traceResults.warnings);
+            if (errorKeys.length > 0) {
+                let errType = traceResults.warnings[errorKeys[0]];
+                if (errType === "branch") msgEl.innerHTML = `⚠️ <span class='text-rose-600 font-bold'>${modeBadge}</span> 로봇은 외길을 좋아해요. 한 방향으로만 선을 이어주세요!`;
+                else if (errType === "invalid_turn_no_road") msgEl.innerHTML = `⚠️ <span class='text-amber-600 font-bold'>${modeBadge}</span> 회전 지시 방향에 나가는 초록선이 끊겨있어요!`;
+                else if (errType === "loop") msgEl.innerHTML = `🔄 <span class='text-indigo-600 font-bold'>${modeBadge}</span> 빙글빙글 도는 무한 굴레를 끊고 바른 길을 열어주세요.`;
+                return;
+            }
+
+            let allCollected = true; Object.keys(treasures).forEach(k => { if (!traceResults.visited.has(k)) allCollected = false; });
+            msgEl.innerHTML = allCollected ? `✨ <span class='text-emerald-600 font-bold'>${modeBadge}</span> 설계 완벽! 보물까지 도착할 준비 완료. 출발하세요! 🚀` : `🗺️ <span class='text-slate-600 font-bold'>${modeBadge}</span> 출발점부터 보물까지 선을 계속 연결해 보세요!`;
+        }
+
+        async function startSimulation() {
+            if (isSimulating || selectedTool === 'tool-treasure') return;
+            if (Object.keys(treasures).length === 0 || Object.keys(traceResults.warnings).length > 0) return;
+
+            isSimulating = true; selectedTool = null; updateButtonStates(); renderCompactAlgorithmBadges(0);
+            const robot = document.getElementById('robot'); positionRobotAtStart();
+            activeTreasures = { ...treasures }; renderTreasures(activeTreasures);
+
+            await sleep(600);
+            let currR = startRow, currC = startCol;
+            let hasUp = boardCommands["segment,2.5,0"] === 'straight';
+            let currentDir = hasUp ? "Up" : "Right"; currentAngle = hasUp ? -90 : 0;
+
+            let steps = 0;
+            while (isSimulating && steps < 50) {
+                steps++;
+                let prevR = currR, prevC = currC;
+                if (currentDir === 'Up') currR -= 1; else if (currentDir === 'Down') currR += 1; else if (currentDir === 'Right') currC += 1; else if (currentDir === 'Left') currC -= 1;
+
+                const segmentKey = `segment,${(prevR + currR) / 2},${(prevC + currC) / 2}`;
+                if (boardCommands[segmentKey] !== 'straight') { playCrashSound(); isSimulating = false; updateButtonStates(); return; }
+
+                renderCompactAlgorithmBadges(steps * 2 - 1);
+                robot.style.left = `calc(${getCoordPercent(currC, 'x')}% - 30px)`; robot.style.top = `calc(${getCoordPercent(currR, 'y')}% - 30px)`;
+                await sleep(450);
+
+                if (!isSimulating) return;
+                renderCompactAlgorithmBadges(steps * 2);
+
+                if (activeTreasures[`${currR},${currC}`]) {
+                    delete activeTreasures[`${currR},${currC}`]; playTone(880, 'sine', 0.15, 0.15); renderTreasures(activeTreasures);
+                }
+                if (Object.keys(activeTreasures).length === 0) {
+                    playSuccessSound(); document.getElementById('successModal').classList.remove('hidden'); isSimulating = false; updateButtonStates(); renderCompactAlgorithmBadges(-1); return;
+                }
+                if (hazards[`${currR},${currC}`]) { playExplosionSound(); isSimulating = false; updateButtonStates(); renderCompactAlgorithmBadges(-1); return; }
+                if (currR < 0 || currR > 3 || currC < 0 || currC > 5) { playCrashSound(); isSimulating = false; updateButtonStates(); renderCompactAlgorithmBadges(-1); return; }
+
+                const cmd = boardCommands[`${currR},${currC}`];
+                if (cmd) {
+                    if (cmd === 'left') { currentDir = turnLeftMap[currentDir]; currentAngle -= 90; }
+                    else { currentDir = turnRightMap[currentDir]; currentAngle += 90; }
+                    
+                    // [정합성 주행 회전] 얼굴은 회전하지 않고 바디와 헤드라이트 빔만 회전
+                    const chassis = document.getElementById('robot-chassis');
+                    if (chassis) {
+                        chassis.style.transform = `rotate(${currentAngle}deg)`;
+                    }
+                    await sleep(400);
+                }
+            }
+            isSimulating = false; updateButtonStates(); renderCompactAlgorithmBadges(-1);
+        }
+
+        function clearEverything() {
+            isSimulating = false; selectedTool = null; boardCommands = {}; hazards = {}; startRow = 3; startCol = 0;
+            placeRandomTreasure(); playTone(220, 'sine', 0.2); runAnalysis();
+        }
+
+        function closeSuccessModal() { document.getElementById('successModal').classList.add('hidden'); isSimulating = false; resetSimulation(); }
+        function resetSimulation() { isSimulating = false; selectedTool = null; positionRobotAtStart(); runAnalysis(); }
+    </script>
+</body>
+</html>

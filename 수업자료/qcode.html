@@ -314,6 +314,7 @@
             <span class="text-7xl text-amber-500 animate-bounce block"><i class="fa-solid fa-trophy"></i></span>
             <h2 class="font-jua text-4xl text-slate-800 mt-4 mb-2">미션 대성공! 🎉</h2>
             <p class="text-slate-600 font-bold mb-6">스스로 설계한 알고리즘으로 완벽하게 모든 보물을 찾았습니다!</p>
+            <p class="text-slate-600 font-bold mb-6">스스로 설계한 알고리즘으로 완벽하게 모든 보물을 찾았습니다!</p>
             <button onclick="closeSuccessModal()" class="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-jua text-2xl py-4 rounded-2xl transition transform active:scale-95 shadow-lg">
                 도전 계속하기 🚀
             </button>
@@ -357,6 +358,7 @@
             }
         }
 
+        // [효과음 목록]
         function playPopSound() { playTone(880, 'sine', 0.1); }
         function playSuccessSound() {
             playTone(523.25, 'triangle', 0.15, 0.15); 
@@ -517,20 +519,8 @@
             runAnalysis();
         }
 
-        function initMap() {
-            renderHwajum();     
-            renderGuides();     
-            renderActivePath(); 
-            renderCommands();   
-            renderHazards();    
-            renderTreasures();  
-            positionRobotAtStart();
-            renderClickAnchors();
-            updateButtonStates(); 
-            updateAnalysisMessage(); 
-            renderCompactAlgorithmBadges();
-        }
-
+        // [화점 그리기 함수 복원]
+        // 지도 초기화 과정에서 지도 위 바둑판 화점(교차점 점 모양 가이드)을 정교하게 렌더링합니다.
         function renderHwajum() {
             const container = document.getElementById('hwajumLayer');
             container.innerHTML = '';
@@ -545,6 +535,20 @@
                     container.appendChild(dot);
                 }
             }
+        }
+
+        function initMap() {
+            renderHwajum();     
+            renderGuides();     
+            renderActivePath(); 
+            renderCommands();   
+            renderHazards();    
+            renderTreasures();  
+            positionRobotAtStart();
+            renderClickAnchors();
+            updateButtonStates(); 
+            updateAnalysisMessage(); 
+            renderCompactAlgorithmBadges();
         }
 
         function runAnalysis() {
@@ -590,8 +594,6 @@
                 });
 
                 // [쉬움 모드 전용 스마트 한붓그리기 조향 해결사]
-                // 사용자가 길(세그먼트)만 클릭해도, 현재 진행 중인 방문 노드 위치에서 진출 가능한 초록선 목록을 계산하여
-                // 좌/우회전 명령 타일을 100% 완전 자동 계산하여 심어줍니다.
                 if (currentMode === 'easy') {
                     let outgoing = [];
                     possibleDirs.forEach(d => {
@@ -681,14 +683,16 @@
                 path.push({ r: currR, c: currC, dir: currDir });
             }
 
-            // [버그 수정 2: 무의미한 미방문 회전 명령 자동 클린업]
-            Object.keys(boardCommands).forEach(key => {
-                if (!key.startsWith("segment")) { // 세그먼트가 아닌 일반 교차로 명령 노드인 경우
-                    if (!visited.has(key)) {
-                        delete boardCommands[key];
+            // [골드 패치] 어려움 모드(hard)에서는 직접 미래 동선을 설계하므로, 미방문 회전 명령 자동 삭제(Clean-up) 로직을 우회합니다.
+            if (currentMode !== 'hard') {
+                Object.keys(boardCommands).forEach(key => {
+                    if (!key.startsWith("segment")) { 
+                        if (!visited.has(key)) {
+                            delete boardCommands[key];
+                        }
                     }
-                }
-            });
+                });
+            }
 
             traceResults = { path, visited, entryDirs, warnings, activeSegments, segmentDirs };
             initMap();
@@ -766,41 +770,38 @@
         }
 
         // [비주얼 대격변: 실제 좌/우 도로 표지판 형태의 수학적 직각 90도 화살표 설계 및 좌우 고대비 색상 분리]
-        // 이미지 image_924fe5.png 의 빨간 원형 테두리 표지판 느낌을 고대비 감성으로 탑재했습니다.
-        // 특수아동을 위해 좌회전은 빨간색 테두리+살구색바탕, 우회전은 파란색 테두리+하늘색바탕으로 전폭 분할하여 구분이 1초 만에 완료됩니다.
+        // 이미지 image_924fe5.png 의 빨간 원형 테두리 표지판 느낌을 고대비 감성으로 완벽 탑재했습니다.
+        // 특수아동을 위해 좌회전은 고대비 빨간색 원테두리+파스텔 붉은배경, 우회전은 고대비 파란색 원테두리+하늘색배경으로 확실히 분리했습니다.
         function getTurnSvg(type, entryDir) {
             let baseAngle = 0;
-            if (entryDir === "Down") baseAngle = 90;
-            else if (entryDir === "Left") baseAngle = 180;
-            else if (entryDir === "Up") baseAngle = 270;
+            if (entryDir === "Up") baseAngle = 0;
+            else if (entryDir === "Right") baseAngle = 90;
+            else if (entryDir === "Down") baseAngle = 180;
+            else if (entryDir === "Left") baseAngle = 270;
 
             const isLeft = (type === 'left');
-            const borderCol = isLeft ? '#ef4444' : '#0284c7';
-            const bgCol = isLeft ? '#fee2e2' : '#e0f2fe';
-            const arrowCol = '#1e293b'; // 고해상도 차콜 블랙 화살표
+            const borderCol = isLeft ? '#dc2626' : '#2563eb'; // 빨강 / 파랑 고대비 테두리
+            const bgCol = isLeft ? '#fecaca' : '#bae6fd';     // 파스텔 레드 / 파스텔 블루 명확한 배경색 분리
+            const arrowCol = '#1e293b'; // 실제 표지판 느낌의 다크 차콜 블랙 화살표
 
             let arrowElements = "";
             if (isLeft) {
-                // Enters from Left (18, 50), goes horizontally to (50, 50), then turns 90 degrees straight UP to (50, 24).
                 arrowElements = `
-                    <circle cx="18" cy="50" r="4.5" fill="#ffffff" stroke="none" />
-                    <path d="M 18 50 L 50 50 L 50 24" fill="none" stroke="${arrowCol}" stroke-width="11" stroke-linecap="square" stroke-linejoin="miter"/>
-                    <!-- UP Arrowhead -->
-                    <path d="M 34 38 L 50 20 L 66 38" fill="none" stroke="${arrowCol}" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+                    <circle cx="50" cy="74" r="4.5" fill="#ffffff" stroke="none" />
+                    <path d="M 50 74 L 50 50 L 34 50" fill="none" stroke="${arrowCol}" stroke-width="11" stroke-linecap="square"/>
+                    <polygon points="20,50 36,34 36,66" fill="${arrowCol}" />
                 `;
             } else {
-                // Enters from Left (18, 50), goes horizontally to (50, 50), then turns 90 degrees straight DOWN to (50, 76).
                 arrowElements = `
-                    <circle cx="18" cy="50" r="4.5" fill="#ffffff" stroke="none" />
-                    <path d="M 18 50 L 50 50 L 50 76" fill="none" stroke="${arrowCol}" stroke-width="11" stroke-linecap="square" stroke-linejoin="miter"/>
-                    <!-- DOWN Arrowhead -->
-                    <path d="M 34 62 L 50 80 L 66 62" fill="none" stroke="${arrowCol}" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+                    <circle cx="50" cy="74" r="4.5" fill="#ffffff" stroke="none" />
+                    <path d="M 50 74 L 50 50 L 66 50" fill="none" stroke="${arrowCol}" stroke-width="11" stroke-linecap="square"/>
+                    <polygon points="80,50 64,34 64,66" fill="${arrowCol}" />
                 `;
             }
 
             return `
                 <svg viewBox="0 0 100 100" class="w-full h-full drop-shadow-lg" style="transform: rotate(${baseAngle}deg); transform-origin: 50% 50%;">
-                    <!-- 실물 가이드 점선 라인과 외곽 서클 테두리 마감 -->
+                    <!-- 표지판 링 및 내부 보조 가이드라인 대시 점선 -->
                     <circle cx="50" cy="50" r="42" fill="${bgCol}" stroke="${borderCol}" stroke-width="7"/>
                     <circle cx="50" cy="50" r="38" fill="none" stroke="#ffffff" stroke-width="1.5" stroke-dasharray="3,3" opacity="0.5"/>
                     ${arrowElements}
@@ -862,12 +863,32 @@
 
                     const div = document.createElement('div');
                     const isPassed = traceResults.visited.has(key);
+                    
                     div.className = `absolute z-30 pointer-events-none transition-all duration-300 animate-[pop_0.2s_ease-out] ${isPassed ? '' : 'opacity-40'}`;
                     div.style.left = `calc(${x}% - 22px)`;
                     div.style.top = `calc(${y}% - 22px)`;
                     div.style.width = "44px";
                     div.style.height = "44px";
                     div.innerHTML = getTurnSvg(val, entryDir);
+
+                    // [골드 패치 - 가리기 방지용 미니 경고 앵커 시스템]
+                    const warning = traceResults.warnings[key];
+                    if (warning) {
+                        const badge = document.createElement('div');
+                        badge.className = "absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full border border-white flex items-center justify-center text-white text-[9px] font-bold shadow-md animate-bounce z-40";
+                        if (warning === "invalid_turn_no_road") {
+                            badge.className += " bg-amber-500";
+                            badge.innerHTML = `<i class="fa-solid fa-road-barrier"></i>`;
+                        } else if (warning === "loop") {
+                            badge.className += " bg-indigo-600";
+                            badge.innerHTML = `<i class="fa-solid fa-arrows-spin"></i>`;
+                        } else if (warning === "branch") {
+                            badge.className += " bg-rose-600";
+                            badge.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i>`;
+                        }
+                        div.appendChild(badge);
+                    }
+
                     container.appendChild(div);
                 }
             });
@@ -945,7 +966,6 @@
             let startDir = hasUp ? "Up" : "Right";
             currentAngle = startDir === "Up" ? -90 : 0; 
             
-            // [정합 주행 가드] 로봇의 회전 중심점을 교정하여 몸체 축 이탈 현상 해결
             const chassis = document.getElementById('robot-chassis');
             if (chassis) {
                 chassis.style.transform = `rotate(${currentAngle}deg)`;
@@ -989,7 +1009,7 @@
             updateAnalysisMessage();
         }
 
-        // [핵심 변경: 흐름판 뱃지 이모지 제거 -> 실시간 고대비 인지 치료용 SVG로 전원 치환]
+        // [흐름판 미니어처 SVG 뱃지 렌더러]
         function renderCompactAlgorithmBadges(activeSimIndex = -1) {
             const flowContainer = document.getElementById('flowCardsContainer');
             if (!flowContainer) return; flowContainer.innerHTML = '';
@@ -1006,10 +1026,10 @@
             for (let i = 1; i < pathNodes.length; i++) {
                 const key = `${pathNodes[i].r},${pathNodes[i].c}`;
                 
-                // 직진 (초록색 표지판 스타일)
+                // 직진 (초록색 가이드 표지판)
                 cardDataList.push({ 
                     type: 'move', 
-                    icon: `<svg viewBox="0 0 100 100" class="w-6 h-6"><circle cx="50" cy="50" r="42" fill="#e6f4ea" stroke="#10b981" stroke-width="8"/><path d="M 50 80 L 50 20 M 35 38 L 50 18 L 65 38" fill="none" stroke="#10b981" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/></svg>`, 
+                    icon: `<svg viewBox="0 0 100 100" class="w-6 h-6"><circle cx="50" cy="50" r="42" fill="#e6f4ea" stroke="#10b981" stroke-width="8"/><circle cx="50" cy="74" r="4.5" fill="#ffffff" stroke="none"/><path d="M 50 74 L 50 26" fill="none" stroke="#1e293b" stroke-width="12" stroke-linecap="square"/><polygon points="50,20 34,36 66,36" fill="#1e293b"/></svg>`, 
                     bg: 'bg-emerald-500 text-white border-emerald-600', 
                     stepIndex: i * 2 - 1 
                 });
@@ -1034,19 +1054,19 @@
                     });
                 }
                 
-                // 회전 지시 (상대 회전 방향이 절대 회전판 모양으로 고대비 각인되어 출력됨)
+                // 회전 지시 뱃지
                 const cmd = boardCommands[key];
                 if (cmd === 'left') {
                     cardDataList.push({ 
                         type: 'left', 
-                        icon: `<svg viewBox="0 0 100 100" class="w-6 h-6"><circle cx="50" cy="50" r="42" fill="#fee2e2" stroke="#ef4444" stroke-width="8"/><path d="M 72 70 L 72 45 L 32 45" fill="none" stroke="#1e293b" stroke-width="12" stroke-linecap="square" stroke-linejoin="miter"/><path d="M 47 30 L 27 45 L 47 60" fill="none" stroke="#1e293b" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/></svg>`, 
+                        icon: `<svg viewBox="0 0 100 100" class="w-6 h-6"><circle cx="50" cy="50" r="42" fill="#fecaca" stroke="#dc2626" stroke-width="8"/><circle cx="50" cy="74" r="4.5" fill="#ffffff" stroke="none"/><path d="M 50 74 L 50 50 L 34 50" fill="none" stroke="#1e293b" stroke-width="12" stroke-linecap="square"/><polygon points="20,50 36,34 36,66" fill="#1e293b"/></svg>`, 
                         bg: 'bg-rose-500 text-white border-rose-600', 
                         stepIndex: i * 2 
                     });
                 } else if (cmd === 'right') {
                     cardDataList.push({ 
                         type: 'right', 
-                        icon: `<svg viewBox="0 0 100 100" class="w-6 h-6"><circle cx="50" cy="50" r="42" fill="#e0f2fe" stroke="#0284c7" stroke-width="8"/><path d="M 28 70 L 28 45 L 68 45" fill="none" stroke="#1e293b" stroke-width="12" stroke-linecap="square" stroke-linejoin="miter"/><path d="M 53 30 L 73 45 L 53 60" fill="none" stroke="#1e293b" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/></svg>`, 
+                        icon: `<svg viewBox="0 0 100 100" class="w-6 h-6"><circle cx="50" cy="50" r="42" fill="#bae6fd" stroke="#2563eb" stroke-width="8"/><circle cx="50" cy="74" r="4.5" fill="#ffffff" stroke="none"/><path d="M 50 74 L 50 50 L 66 50" fill="none" stroke="#1e293b" stroke-width="12" stroke-linecap="square"/><polygon points="80,50 64,34 64,66" fill="#1e293b"/></svg>`, 
                         bg: 'bg-sky-500 text-white border-sky-600', 
                         stepIndex: i * 2 
                     });
@@ -1081,7 +1101,7 @@
                     createSegmentAnchor(r, c, container); 
                 }
             }
-            // 세로 세그먼트 앵커 생성 루프 범위 복구
+            // 세로 세그먼트 앵커 생성
             for (let r = 0; r < 3; r += 0.5) { 
                 if (Number.isInteger(r)) continue;
                 for (let c = 0; c < 6; c++) {
@@ -1094,20 +1114,21 @@
                     if (r === 3 && c === 0) continue;
                     const x = getCoordPercent(c, 'x'); const y = getCoordPercent(r, 'y'); const key = `${r},${c}`;
                     const anchor = document.createElement('button');
+                    
                     anchor.className = "absolute rounded-full flex items-center justify-center z-30 pointer-events-auto w-12 h-12";
                     anchor.style.left = `calc(${x}% - 24px)`; anchor.style.top = `calc(${y}% - 24px)`;
-                    let warningHtml = `<div class="w-10 h-10 rounded-full border-4 border-dashed border-slate-400/20 hover:border-slate-500 transition"></div>`;
                     
-                    // 각 경고 코드별 알맞은 폰트어썸 아이콘 매핑 완료
-                    if (traceResults.warnings[key] === "branch") {
-                        warningHtml = `<div class="relative w-11 h-11 flex items-center justify-center"><div class="absolute inset-0 rounded-full bg-rose-500 warning-ring opacity-60"></div><div class="relative w-8 h-8 rounded-full bg-rose-600 border-2 border-white flex items-center justify-center text-white text-xs shadow-md"><i class="fa-solid fa-triangle-exclamation"></i></div></div>`;
-                    } else if (traceResults.warnings[key] === "invalid_turn_no_road") {
-                        warningHtml = `<div class="relative w-11 h-11 flex items-center justify-center"><div class="absolute inset-0 rounded-full bg-amber-500 warning-ring opacity-60"></div><div class="relative w-8 h-8 rounded-full bg-amber-500 border-2 border-white flex items-center justify-center text-white text-xs shadow-md"><i class="fa-solid fa-road-barrier"></i></div></div>`;
-                    } else if (traceResults.warnings[key] === "loop") {
-                        // [순환 경고 시각화] 무한루프 발생 교차로에 어울리는 보라색 순환 아이콘 탑재
-                        warningHtml = `<div class="relative w-11 h-11 flex items-center justify-center"><div class="absolute inset-0 rounded-full bg-indigo-500 warning-ring opacity-60"></div><div class="relative w-8 h-8 rounded-full bg-indigo-600 border-2 border-white flex items-center justify-center text-white text-xs shadow-md"><i class="fa-solid fa-arrows-spin"></i></div></div>`;
+                    let warningHtml = "";
+                    const hasCommand = boardCommands[key];
+                    
+                    if (hasCommand) {
+                        warningHtml = `<div class="w-10 h-10 rounded-full border-2 border-transparent hover:border-slate-400/30 transition"></div>`;
+                    } else {
+                        warningHtml = `<div class="w-10 h-10 rounded-full border-4 border-dashed border-slate-400/20 hover:border-slate-500 transition"></div>`;
                     }
-                    anchor.innerHTML = warningHtml; anchor.onclick = () => handleIntersectionClick(r, c, key);
+                    
+                    anchor.innerHTML = warningHtml; 
+                    anchor.onclick = () => handleIntersectionClick(r, c, key);
                     container.appendChild(anchor);
                 }
             }
@@ -1125,8 +1146,6 @@
                 if (selectedTool === 'tool-treasure') return;
 
                 // [어려움 모드 직선/회전 방향 불일치 배치 차단 가드]
-                // 이미 교차로의 회전방향(좌/우)이 명확히 결정되어 있고, 클릭하는 도로의 방향이
-                // 설정된 회전 지시 혹은 진입 방향과 다를 경우 경고를 하고 직진 길 배치를 물리 차단합니다.
                 if (currentMode === 'hard') {
                     let willBeStraight = (boardCommands[key] !== 'straight');
                     if (willBeStraight) {
@@ -1211,7 +1230,7 @@
             if (hazards[key]) { showWarning("⚠️ 불길 장애물이 배치된 교차로에는 회전 명령을 둘 수 없어요!"); return; }
 
             // [순차 연결 규칙 완벽 복원] 출발지로부터 한붓그리기로 이어진 활성 노드가 아닌 경우 터치 입력 즉각 차단
-            if (!traceResults.visited.has(key)) { 
+            if (currentMode !== 'hard' && !traceResults.visited.has(key)) { 
                 showWarning("⚠️ 출발지에서부터 초록색 길이 연결된 곳에만 회전 지시를 내릴 수 있어요!"); 
                 return; 
             }
@@ -1223,7 +1242,6 @@
             }
 
             // [어려움 모드 수동 코딩 및 물리적 90도 회전 진출 제약 계산 메커니즘]
-            // 특정 진입 축에 따라 좌회전 또는 우회전만 물리적으로 선택되어야 하는 지형 경계를 연산하여 한 방향만 활성화해 줍니다.
             if (currentMode === 'hard') {
                 let entryDir = traceResults.entryDirs[key] || "Right";
                 let leftDir = turnLeftMap[entryDir];
@@ -1240,13 +1258,11 @@
                 const currentCmd = boardCommands[key];
                 let nextCmd = null;
                 
-                // 만약 특정 진입에서 사방이 막혀 아예 회전이 불가능한 경우 가드
                 if (!canLeft && !canRight && !currentCmd) {
                     showWarning("⚠️ 이 교차로에서는 회전할 수 있는 유효한 방향이 없습니다!");
                     return;
                 }
 
-                // 가용성 맵핑에 따라 물리적으로 진출이 불가한 경계의 명령어를 자동으로 스킵하여 토글 연동
                 if (!currentCmd) {
                     if (canLeft) nextCmd = 'left';
                     else if (canRight) nextCmd = 'right';
@@ -1302,7 +1318,7 @@
                     boardCommands[segKey] = 'straight';
                     boardCommands[key] = 'left';
                 } else {
-                    nextCmd = 'right'; // 왼쪽이 경계 밖이면 자동 스킵
+                    nextCmd = 'right'; 
                 }
             }
 
@@ -1315,7 +1331,7 @@
                     boardCommands[segKey] = 'straight';
                     boardCommands[key] = 'right';
                 } else {
-                    nextCmd = null; // 우회전도 불가능하면 초기화 스킵
+                    nextCmd = null; 
                 }
             }
 
@@ -1335,26 +1351,44 @@
             runAnalysis();
         }
 
+        // [핵심 업그레이드: 인지 치료 최적화형 가이드 배지 내장 시스템 문구 렌더러]
+        // 쉬움, 보통, 어려움 단계마다 요구되는 행동 수칙과 조작 대상을 아이콘 매칭 뱃지로 직접 그려서 이해를 돕습니다.
         function updateAnalysisMessage() {
             const msgEl = document.getElementById('systemMessage'); if (!msgEl) return;
             if (selectedTool === 'tool-treasure') { msgEl.innerHTML = "💎 <span class='text-teal-600 font-bold'>[보물 배치]</span> 지도의 교차로를 터치하여 보물상자(<svg viewBox='0 0 100 100' class='inline-block w-5 h-5 align-middle'><path d='M 12 36 L 12 18 C 12 18, 18 8, 26 16 L 26 36 Z' fill='#b91c1c'/><path d='M 88 36 L 88 18 C 88 18, 82 8, 74 16 L 74 36 Z' fill='#b91c1c'/><path d='M 12 18 Q 50 -8 88 18 L 88 28 Q 50 8 12 28 Z' fill='#92400e'/><rect x='12' y='38' width='76' height='48' rx='8' fill='#78350f'/><rect x='12' y='38' width='14' height='48' fill='#fbbf24'/><rect x='74' y='38' width='14' height='48' fill='#fbbf24'/><rect x='44' y='32' width='12' height='24' fill='#fbbf24' rx='4'/></svg>)를 올려두세요."; return; }
             if (selectedTool === 'tool-fire') { msgEl.innerHTML = "🔥 <span class='text-red-500 font-bold'>[불길 배치]</span> 지도의 교차로를 터치하여 장애물을 설치하세요."; return; }
             if (Object.keys(treasures).length === 0) { msgEl.innerHTML = "💎 <span class='text-teal-500 font-bold'>[보물 배치 필요]</span> 지도를 터치해 보물상자를 올려놓으세요!"; return; }
 
-            // 현재 가용 모드별 힌트 메커니즘 차별화 출력
-            let modeBadge = currentMode === 'easy' ? "🟢 [쉬움 한붓그리기]" : (currentMode === 'normal' ? "🔵 [보통 자동스티어링]" : "🔴 [어려움 완전수동]");
-
+            // 에러 경고 상태 분석
             let errorKeys = Object.keys(traceResults.warnings);
             if (errorKeys.length > 0) {
                 let errType = traceResults.warnings[errorKeys[0]];
+                let modeBadge = currentMode === 'easy' ? "🟢 [쉬움]" : (currentMode === 'normal' ? "🔵 [보통]" : "🔴 [어려움]");
                 if (errType === "branch") msgEl.innerHTML = `⚠️ <span class='text-rose-600 font-bold'>${modeBadge}</span> 로봇은 외길을 좋아해요. 한 방향으로만 선을 이어주세요!`;
-                else if (errType === "invalid_turn_no_road") msgEl.innerHTML = `⚠️ <span class='text-amber-600 font-bold'>${modeBadge}</span> 회전 지시 방향에 나가는 초록선이 끊겨있어요!`;
+                else if (errType === "invalid_turn_no_road") msgEl.innerHTML = `⚠️ <span class='text-amber-600 font-bold'>${modeBadge}</span> 회전 지시 방향에 연결된 나가는 초록선이 끊겨있어요!`;
                 else if (errType === "loop") msgEl.innerHTML = `🔄 <span class='text-indigo-600 font-bold'>${modeBadge}</span> 빙글빙글 도는 무한 굴레를 끊고 바른 길을 열어주세요.`;
                 return;
             }
 
+            // 전체 성공 체크
             let allCollected = true; Object.keys(treasures).forEach(k => { if (!traceResults.visited.has(k)) allCollected = false; });
-            msgEl.innerHTML = allCollected ? `✨ <span class='text-emerald-600 font-bold'>${modeBadge}</span> 설계 완벽! 보물까지 도착할 준비 완료. 출발하세요! 🚀` : `🗺️ <span class='text-slate-600 font-bold'>${modeBadge}</span> 출발점부터 보물까지 선을 계속 연결해 보세요!`;
+            if (allCollected) {
+                msgEl.innerHTML = "✨ <span class='text-emerald-600 font-bold'>[설계 완벽!]</span> 모든 조건이 만족되었습니다. 이제 <span class='bg-indigo-600 text-white font-jua px-2 py-0.5 rounded-lg text-xs border border-indigo-700 mx-1'>로봇 출발</span> 버튼을 눌러보세요! 🚀";
+                return;
+            }
+
+            // 난이도별 프리미엄 인지 치료용 설명 가이드 빌드
+            // 아이들이 직접 찾아 누르는 구성요소를 설명 박스 안에 100% 동일한 비주얼 뱃지로 그려서 제시합니다.
+            const segmentBadge = `<span class='inline-flex items-center bg-emerald-100 border border-emerald-300 text-emerald-700 text-xs font-bold px-2 py-0.5 rounded-lg mx-1 gap-1'><span class='w-3 h-1.5 bg-emerald-500 rounded'></span>초록선 길</span>`;
+            const h화점Badge = `<span class='inline-flex items-center bg-sky-100 border border-sky-300 text-sky-700 text-xs font-bold px-2 py-0.5 rounded-lg mx-1 gap-1'><span class='w-3 h-3 rounded-full border border-sky-400 bg-sky-200'></span>동그란 교차점</span>`;
+
+            if (currentMode === 'easy') {
+                msgEl.innerHTML = `🟢 <span class='text-emerald-600 font-bold'>[쉬움]</span> 출발지에서 보물까지 ${segmentBadge}을 연결하세요! 회전이 자동으로 만들어져요.`;
+            } else if (currentMode === 'normal') {
+                msgEl.innerHTML = `🔵 <span class='text-indigo-600 font-bold'>[보통]</span> 출발지에서 ${segmentBadge}과 ${h화점Badge}을 선택하세요!`;
+            } else if (currentMode === 'hard') {
+                msgEl.innerHTML = `🔴 <span class='text-rose-600 font-bold'>[어려움]</span> 출발지에서 보물까지 ${segmentBadge}과 ${h화점Badge}을 연결하세요!`;
+            }
         }
 
         async function startSimulation() {
@@ -1416,6 +1450,7 @@
             placeRandomTreasure(); playTone(220, 'sine', 0.2); runAnalysis();
         }
 
+        // 전체 초기화 시 기본 난이도로 유지
         function closeSuccessModal() { document.getElementById('successModal').classList.add('hidden'); isSimulating = false; resetSimulation(); }
         function resetSimulation() { isSimulating = false; selectedTool = null; positionRobotAtStart(); runAnalysis(); }
     </script>

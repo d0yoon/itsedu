@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <!-- 버전 트래커 내부 표기 및 브라우저 타이틀 고도화 -->
-    <title>내 맘대로 보물지도 만들기 (v1.08) - 지능형 조향 버전</title>
+    <title>내 맘대로 보물지도 만들기 (v1.08) - 4x5 조향 최적화</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
@@ -119,6 +119,15 @@
             background: #cbd5e1;
             border-radius: 9999px;
         }
+
+        /* 좌우 클릭 슬라이드 지원을 위해 기본 가로 스크롤 감춤 처리 */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;  /* IE and Edge */
+            scrollbar-width: none;  /* Firefox */
+        }
     </style>
 </head>
 <body class="min-h-screen flex flex-col justify-center items-center p-1.5 md:p-3">
@@ -129,12 +138,13 @@
         <div class="flex flex-col md:flex-row justify-between items-center border-b-4 border-dashed border-slate-200 pb-3 gap-3">
             <div class="flex items-center gap-2 w-full">
                 <span class="text-3xl text-amber-500 animate-bounce flex-shrink-0"><i class="fa-solid fa-map-location-dot"></i></span>
-                <div class="w-full">
-                    <h1 class="font-jua text-2xl md:text-3xl text-slate-800 tracking-wide">내 맘대로 보물지도 만들기</h1>
-                    <div class="flex items-center gap-2 mt-0.5 w-full">
-                        <p id="systemMessage" class="text-indigo-600 font-jua text-sm md:text-base transition-all duration-300 flex items-center gap-1.5 flex-wrap">
-                            출발지에서 보물상자까지 선을 연결해 알고리즘 경로를 설계해 보세요!
-                        </p>
+                <div class="w-full min-w-0">
+                    <h1 class="font-jua text-2xl md:text-3xl text-slate-800 tracking-wide truncate">내 맘대로 보물지도 만들기</h1>
+                    <div class="flex items-center mt-0.5 w-full overflow-hidden">
+                        <!-- 한 줄 최적화: 줄바꿈 방지 스타일 적용 및 문장 요약화 -->
+                        <div id="systemMessage" class="text-indigo-600 font-jua text-xs sm:text-sm md:text-base transition-all duration-300 flex items-center gap-1.5 whitespace-nowrap overflow-ellipsis overflow-hidden w-full">
+                            출발지에서 보물까지 초록선을 터치해 알고리즘 경로를 설계해 보세요!
+                        </div>
                     </div>
                 </div>
             </div>
@@ -153,157 +163,173 @@
             </div>
         </div>
 
-        <!-- 태블릿 전용 4대 조작 버튼바 -->
-        <div class="grid grid-cols-4 gap-2.5 w-full">
-            <!-- 1. 로봇 출발 -->
-            <button id="btn-start" onclick="startSimulation()" class="flex items-center justify-between p-1.5 md:p-2.5 rounded-xl border-4 border-slate-900 bg-indigo-600 hover:bg-indigo-700 text-white font-jua text-base md:text-xl transition-all duration-150 shadow-[3px_3px_0px_#0f172a] hover:translate-y-[1px] hover:shadow-[1px_1px_0px_#0f172a] active:translate-y-[3px] active:shadow-none cursor-pointer">
-                <div class="flex items-center gap-1.5 md:gap-2 mx-auto">
-                    <span class="w-7 h-7 md:w-8 md:h-8 rounded-full bg-white flex items-center justify-center text-indigo-600 border border-slate-900 shadow-inner">
-                        <i class="fa-solid fa-play text-xs md:text-sm"></i>
-                    </span>
-                    <span class="tracking-wider">로봇 출발</span>
-                </div>
-            </button>
-            <!-- 2. 뜨거운 불길 배치 -->
-            <button id="tool-fire" onclick="selectTool('tool-fire')" class="flex items-center justify-between p-1.5 md:p-2.5 rounded-xl border-4 border-slate-900 bg-rose-500 hover:bg-rose-600 text-white font-jua text-base md:text-xl transition-all duration-150 shadow-[3px_3px_0px_#0f172a] hover:translate-y-[1px] hover:shadow-[1px_1px_0px_#0f172a] active:translate-y-[3px] active:shadow-none cursor-pointer">
-                <div class="flex items-center gap-1.5 md:gap-2 mx-auto">
-                    <span class="w-7 h-7 md:w-8 md:h-8 rounded-full bg-white flex items-center justify-center text-rose-500 border border-slate-900 shadow-inner">
-                        <i class="fa-solid fa-fire text-xs md:text-sm"></i>
-                    </span>
-                    <span class="tracking-wider">불길 배치</span>
-                </div>
-            </button>
-            <!-- 3. 황금 보물 배치 -->
-            <button id="tool-treasure" onclick="selectTool('tool-treasure')" class="flex items-center justify-between p-1.5 md:p-2.5 rounded-xl border-4 border-slate-900 bg-teal-600 hover:bg-teal-700 text-white font-jua text-base md:text-xl transition-all duration-150 shadow-[3px_3px_0px_#0f172a] hover:translate-y-[1px] hover:shadow-[1px_1px_0px_#0f172a] active:translate-y-[3px] active:shadow-none cursor-pointer">
-                <div class="flex items-center gap-1.5 md:gap-2 mx-auto">
-                    <span class="w-7 h-7 md:w-8 md:h-8 rounded-full bg-white flex items-center justify-center text-teal-600 border border-slate-900 shadow-inner">
-                        <i class="fa-solid fa-gem text-xs md:text-sm"></i>
-                    </span>
-                    <span class="tracking-wider">보물 배치</span>
-                </div>
-            </button>
-            <!-- 4. 전체 초기화 -->
-            <button id="btn-clear" onclick="clearEverything()" class="flex items-center justify-between p-1.5 md:p-2.5 rounded-xl border-4 border-slate-900 bg-slate-700 hover:bg-slate-800 text-white font-jua text-base md:text-xl transition-all duration-150 shadow-[3px_3px_0px_#0f172a] hover:translate-y-[1px] hover:shadow-[1px_1px_0px_#0f172a] active:translate-y-[3px] active:shadow-none cursor-pointer">
-                <div class="flex items-center gap-1.5 md:gap-2 mx-auto">
-                    <span class="w-7 h-7 md:w-8 md:h-8 rounded-full bg-white flex items-center justify-center text-slate-700 border-4 border-slate-900 shadow-inner">
-                        <i class="fa-solid fa-trash-can text-xs md:text-sm"></i>
-                    </span>
-                    <span class="tracking-wider">전체 초기화</span>
-                </div>
-            </button>
-        </div>
-
-        <!-- 4X6 격자선 간격 확장형 바둑판 -->
-        <div class="w-full aspect-[16/9] md:aspect-[21/9] max-h-[290px] baduk-board rounded-[24px] relative overflow-hidden" id="mapViewport">
+        <!-- 메인 인터랙티브 그룹 (4x5 지도 뷰포트 + 우측 수직 버튼 패널) -->
+        <div class="flex flex-col md:flex-row gap-4 items-stretch w-full">
             
-            <!-- [전역 그래픽 정의] 그라디언트 ID 중복 정의 방지 통합 풀 -->
-            <svg style="position: absolute; width: 0; height: 0; overflow: hidden;" aria-hidden="true">
-                <defs>
-                    <!-- 헤드라이트 빔 입체 그라디언트 -->
-                    <linearGradient id="headlight-beam" x1="0%" y1="50%" x2="100%" y2="50%">
-                        <stop offset="0%" stop-color="#fbbf24" stop-opacity="0.9"/>
-                        <stop offset="30%" stop-color="#fef08a" stop-opacity="0.6"/>
-                        <stop offset="100%" stop-color="#fef08a" stop-opacity="0"/>
-                    </linearGradient>
-                    <!-- 로봇 몸체 금속 질감 그라디언트 -->
-                    <linearGradient id="grad-body" x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" stop-color="#64748b"/>
-                        <stop offset="50%" stop-color="#475569"/>
-                        <stop offset="100%" stop-color="#334155"/>
-                    </linearGradient>
-                    <!-- 불길 레이어 그라디언트 -->
-                    <linearGradient id="grad-fire-outer" x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" stop-color="#ef4444"/>
-                        <stop offset="100%" stop-color="#991b1b"/>
-                    </linearGradient>
-                    <linearGradient id="grad-fire-mid" x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" stop-color="#f97316"/>
-                        <stop offset="100%" stop-color="#ea580c"/>
-                    </linearGradient>
-                    <linearGradient id="grad-fire-inner" x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" stop-color="#facc15"/>
-                        <stop offset="100%" stop-color="#eab308"/>
-                    </linearGradient>
-                    
-                    <!-- 직진 세그먼트용 프리미엄 메탈릭 그린 그라디언트 -->
-                    <linearGradient id="grad-straight" x1="0%" y1="0%" x2="100%" y2="0%">
-                        <stop offset="0%" stop-color="#10b981"/>
-                        <stop offset="100%" stop-color="#059669"/>
-                    </linearGradient>
-                </defs>
-            </svg>
-
-            <!-- [바둑판선] 가로선 4줄 여백 대폭 확장 (12%, 37%, 62%, 87%로 대칭 정렬) -->
-            <div class="absolute bg-slate-900 h-[6px] rounded-full opacity-85" style="left: 10%; right: 10%; top: calc(12% - 3px);"></div>
-            <div class="absolute bg-slate-900 h-[6px] rounded-full opacity-85" style="left: 10%; right: 10%; top: calc(37% - 3px);"></div>
-            <div class="absolute bg-slate-900 h-[6px] rounded-full opacity-85" style="left: 10%; right: 10%; top: calc(62% - 3px);"></div>
-            <div class="absolute bg-slate-900 h-[6px] rounded-full opacity-85" style="left: 10%; right: 10%; top: calc(87% - 3px);"></div>
-
-            <!-- [바둑판선] 세로선 6줄 (10% ~ 90%까지 대칭 정렬) -->
-            <div class="absolute bg-slate-900 w-[6px] rounded-full opacity-85" style="left: calc(10% - 3px); top: 12%; height: 75%;"></div>
-            <div class="absolute bg-slate-900 w-[6px] rounded-full opacity-85" style="left: calc(26% - 3px); top: 12%; height: 75%;"></div>
-            <div class="absolute bg-slate-900 w-[6px] rounded-full opacity-85" style="left: calc(42% - 3px); top: 12%; height: 75%;"></div>
-            <div class="absolute bg-slate-900 w-[6px] rounded-full opacity-85" style="left: calc(58% - 3px); top: 12%; height: 75%;"></div>
-            <div class="absolute bg-slate-900 w-[6px] rounded-full opacity-85" style="left: calc(74% - 3px); top: 12%; height: 75%;"></div>
-            <div class="absolute bg-slate-900 w-[6px] rounded-full opacity-85" style="left: calc(90% - 3px); top: 12%; height: 75%;"></div>
-
-            <!-- 하이브리드 인터랙션 가동용 동적 레이어들 -->
-            <div id="hwajumLayer" class="absolute inset-0 pointer-events-none z-10"></div>
-            <svg id="activePathLayer" class="absolute inset-0 z-5 pointer-events-none w-full h-full"></svg>
-            <div id="guidesLayer" class="absolute inset-0 pointer-events-none z-10"></div>
-            <div id="commandsLayer" class="absolute inset-0 z-30 pointer-events-none"></div>
-            <div id="hazardsLayer" class="absolute inset-0 z-20 pointer-events-none"></div>
-            <div id="treasureLayer" class="absolute inset-0 z-20 pointer-events-none"></div>
-            <div id="anchorsLayer" class="absolute inset-0 z-40 pointer-events-none"></div>
-
-            <!-- 코딩 로봇 주체 (바퀴 수평 정렬 및 지향성 헤드라이트 빔 결합) -->
-            <div id="robot" class="absolute z-50 pointer-events-none" style="left: calc(10% - 30px); top: calc(87% - 30px); width: 60px; height: 60px;">
-                <svg viewBox="0 0 100 100" class="w-full h-full drop-shadow-md overflow-visible">
-                    <!-- [1. 독립 회전 섀시 그룹] 바퀴, 헤드빔, 차체 껍데기가 함께 회전 -->
-                    <g id="robot-chassis">
-                        <!-- 전방 우측 조사 헤드라이트 광선 효과 (0도 기준 우향) -->
-                        <path d="M 80 32 L 210 5 L 210 95 L 80 68 Z" fill="url(#headlight-beam)" opacity="0.85"/>
-
-                        <!-- [완전 비틀림 보정형 타이어 바퀴] 전진 방향과 타이어 굴림 방향 기하학적 100% 동기화 -->
-                        <rect x="18" y="4" width="22" height="12" rx="5" fill="#1e293b"/>
-                        <rect x="60" y="4" width="22" height="12" rx="5" fill="#1e293b"/>
-                        <rect x="18" y="84" width="22" height="12" rx="5" fill="#1e293b"/>
-                        <rect x="60" y="84" width="22" height="12" rx="5" fill="#1e293b"/>
+            <!-- 4X5 격자선 간격 확장형 바둑판 (좌측 정렬) -->
+            <div class="flex-1 aspect-[16/9] md:aspect-[21/9] max-h-[290px] baduk-board rounded-[24px] relative overflow-hidden min-w-0" id="mapViewport">
+                
+                <!-- [전역 그래픽 정의] 그라디언트 ID 중복 정의 방지 통합 풀 -->
+                <svg style="position: absolute; width: 0; height: 0; overflow: hidden;" aria-hidden="true">
+                    <defs>
+                        <!-- 헤드라이트 빔 입체 그라디언트 -->
+                        <linearGradient id="headlight-beam" x1="0%" y1="50%" x2="100%" y2="50%">
+                            <stop offset="0%" stop-color="#fbbf24" stop-opacity="0.9"/>
+                            <stop offset="30%" stop-color="#fef08a" stop-opacity="0.6"/>
+                            <stop offset="100%" stop-color="#fef08a" stop-opacity="0"/>
+                        </linearGradient>
+                        <!-- 로봇 몸체 금속 질감 그라디언트 -->
+                        <linearGradient id="grad-body" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" stop-color="#64748b"/>
+                            <stop offset="50%" stop-color="#475569"/>
+                            <stop offset="100%" stop-color="#334155"/>
+                        </linearGradient>
+                        <!-- 불길 레이어 그라디언트 -->
+                        <linearGradient id="grad-fire-outer" x1="0%" y1="0%" x2="0%" y2="100%">
+                            <stop offset="0%" stop-color="#ef4444"/>
+                            <stop offset="100%" stop-color="#991b1b"/>
+                        </linearGradient>
+                        <linearGradient id="grad-fire-mid" x1="0%" y1="0%" x2="0%" y2="100%">
+                            <stop offset="0%" stop-color="#f97316"/>
+                            <stop offset="100%" stop-color="#ea580c"/>
+                        </linearGradient>
+                        <linearGradient id="grad-fire-inner" x1="0%" y1="0%" x2="0%" y2="100%">
+                            <stop offset="0%" stop-color="#facc15"/>
+                            <stop offset="100%" stop-color="#eab308"/>
+                        </linearGradient>
                         
-                        <!-- 로봇 메인 금속 바디 -->
-                        <rect x="14" y="14" width="72" height="72" rx="20" fill="url(#grad-body)" stroke="#0f172a" stroke-width="4"/>
-                        
-                        <!-- 앞부분 하드웨어 램프 (우향 기준 전면에 고정 부착) -->
-                        <circle cx="80" cy="32" r="4" fill="#fef08a" stroke="#d97706" stroke-width="1"/>
-                        <circle cx="80" cy="68" r="4" fill="#fef08a" stroke="#d97706" stroke-width="1"/>
-                        <circle cx="50" cy="72" r="7" fill="#eab308" stroke="#0f172a" stroke-width="1.5"/>
-                    </g>
-                    
-                    <!-- [2. 고정 얼굴 스크린 그룹] 차체가 어떻게 돌아가든, 아이들 기준 항상 바르게 기립 (정적 정렬 유지) -->
-                    <g id="robot-face">
-                        <rect x="24" y="29" width="52" height="42" rx="10" fill="#0284c7" stroke="#000000" stroke-width="2.5"/>
-                        <rect x="27" y="32" width="46" height="36" rx="8" fill="#0c4a6e"/>
-                        
-                        <!-- 앙증맞은 눈과 볼터치, 미소 -->
-                        <ellipse cx="40" cy="46" rx="5.5" ry="5.5" fill="#22d3ee"/>
-                        <ellipse cx="60" cy="46" r="5.5" fill="#22d3ee"/>
-                        <path d="M 34 35 Q 40 32 46 35" fill="none" stroke="#22d3ee" stroke-width="2.5" stroke-linecap="round"/>
-                        <path d="M 54 35 Q 60 32 66 35" fill="none" stroke="#22d3ee" stroke-width="2.5" stroke-linecap="round"/>
-                        <path d="M 44 57 Q 50 61 56 57" fill="none" stroke="#22d3ee" stroke-width="2.5" stroke-linecap="round"/>
-                        <circle cx="32" cy="54" r="3.5" fill="#f43f5e" opacity="0.8"/>
-                        <circle cx="68" cy="54" r="3.5" fill="#f43f5e" opacity="0.8"/>
-                    </g>
+                        <!-- 직진 세그먼트용 프리미엄 메탈릭 그린 그라디언트 -->
+                        <linearGradient id="grad-straight" x1="0%" y1="0%" x2="100%" y2="0%">
+                            <stop offset="0%" stop-color="#10b981"/>
+                            <stop offset="100%" stop-color="#059669"/>
+                        </linearGradient>
+                    </defs>
                 </svg>
+
+                <!-- [바둑판선] 가로선 4줄 여백 대폭 확장 (12%, 37%, 62%, 87%로 대칭 정렬) -->
+                <div class="absolute bg-slate-900 h-[6px] rounded-full opacity-85" style="left: 10%; right: 10%; top: calc(12% - 3px);"></div>
+                <div class="absolute bg-slate-900 h-[6px] rounded-full opacity-85" style="left: 10%; right: 10%; top: calc(37% - 3px);"></div>
+                <div class="absolute bg-slate-900 h-[6px] rounded-full opacity-85" style="left: 10%; right: 10%; top: calc(62% - 3px);"></div>
+                <div class="absolute bg-slate-900 h-[6px] rounded-full opacity-85" style="left: 10%; right: 10%; top: calc(87% - 3px);"></div>
+
+                <!-- [바둑판선] 세로선 5줄 (10% ~ 90%까지 대칭 조절 정렬) -->
+                <div class="absolute bg-slate-900 w-[6px] rounded-full opacity-85" style="left: calc(10% - 3px); top: 12%; height: 75%;"></div>
+                <div class="absolute bg-slate-900 w-[6px] rounded-full opacity-85" style="left: calc(30% - 3px); top: 12%; height: 75%;"></div>
+                <div class="absolute bg-slate-900 w-[6px] rounded-full opacity-85" style="left: calc(50% - 3px); top: 12%; height: 75%;"></div>
+                <div class="absolute bg-slate-900 w-[6px] rounded-full opacity-85" style="left: calc(70% - 3px); top: 12%; height: 75%;"></div>
+                <div class="absolute bg-slate-900 w-[6px] rounded-full opacity-85" style="left: calc(90% - 3px); top: 12%; height: 75%;"></div>
+
+                <!-- 하이브리드 인터랙션 가동용 동적 레이어들 -->
+                <div id="hwajumLayer" class="absolute inset-0 pointer-events-none z-10"></div>
+                <svg id="activePathLayer" class="absolute inset-0 z-5 pointer-events-none w-full h-full"></svg>
+                <div id="guidesLayer" class="absolute inset-0 pointer-events-none z-10"></div>
+                <div id="commandsLayer" class="absolute inset-0 z-30 pointer-events-none"></div>
+                <div id="hazardsLayer" class="absolute inset-0 z-20 pointer-events-none"></div>
+                <div id="treasureLayer" class="absolute inset-0 z-20 pointer-events-none"></div>
+                <div id="anchorsLayer" class="absolute inset-0 z-40 pointer-events-none"></div>
+
+                <!-- 코딩 로봇 주체 (바퀴 수평 정렬 및 지향성 헤드라이트 빔 결합) -->
+                <div id="robot" class="absolute z-50 pointer-events-none" style="left: calc(10% - 30px); top: calc(87% - 30px); width: 60px; height: 60px;">
+                    <svg viewBox="0 0 100 100" class="w-full h-full drop-shadow-md overflow-visible">
+                        <!-- [1. 독립 회전 섀시 그룹] 바퀴, 헤드빔, 차체 껍데기가 함께 회전 -->
+                        <g id="robot-chassis">
+                            <!-- 전방 우측 조사 헤드라이트 광선 효과 (0도 기준 우향) -->
+                            <path d="M 80 32 L 210 5 L 210 95 L 80 68 Z" fill="url(#headlight-beam)" opacity="0.85"/>
+
+                            <!-- [완전 비틀림 보정형 타이어 바퀴] 전진 방향과 타이어 굴림 방향 기하학적 100% 동기화 -->
+                            <rect x="18" y="4" width="22" height="12" rx="5" fill="#1e293b"/>
+                            <rect x="60" y="4" width="22" height="12" rx="5" fill="#1e293b"/>
+                            <rect x="18" y="84" width="22" height="12" rx="5" fill="#1e293b"/>
+                            <rect x="60" y="84" width="22" height="12" rx="5" fill="#1e293b"/>
+                            
+                            <!-- 로봇 메인 금속 바디 -->
+                            <rect x="14" y="14" width="72" height="72" rx="20" fill="url(#grad-body)" stroke="#0f172a" stroke-width="4"/>
+                            
+                            <!-- 앞부분 하드웨어 램프 (우향 기준 전면에 고정 부착) -->
+                            <circle cx="80" cy="32" r="4" fill="#fef08a" stroke="#d97706" stroke-width="1"/>
+                            <circle cx="80" cy="68" r="4" fill="#fef08a" stroke="#d97706" stroke-width="1"/>
+                            <circle cx="50" cy="72" r="7" fill="#eab308" stroke="#0f172a" stroke-width="1.5"/>
+                        </g>
+                        
+                        <!-- [2. 고정 얼굴 스크린 그룹] 차체가 어떻게 돌아가든, 아이들 기준 항상 바르게 기립 (정적 정렬 유지) -->
+                        <g id="robot-face">
+                            <rect x="24" y="29" width="52" height="42" rx="10" fill="#0284c7" stroke="#000000" stroke-width="2.5"/>
+                            <rect x="27" y="32" width="46" height="36" rx="8" fill="#0c4a6e"/>
+                            
+                            <!-- 앙증맞은 눈과 볼터치, 미소 -->
+                            <ellipse cx="40" cy="46" rx="5.5" ry="5.5" fill="#22d3ee"/>
+                            <ellipse cx="60" cy="46" r="5.5" fill="#22d3ee"/>
+                            <path d="M 34 35 Q 40 32 46 35" fill="none" stroke="#22d3ee" stroke-width="2.5" stroke-linecap="round"/>
+                            <path d="M 54 35 Q 60 32 66 35" fill="none" stroke="#22d3ee" stroke-width="2.5" stroke-linecap="round"/>
+                            <path d="M 44 57 Q 50 61 56 57" fill="none" stroke="#22d3ee" stroke-width="2.5" stroke-linecap="round"/>
+                            <circle cx="32" cy="54" r="3.5" fill="#f43f5e" opacity="0.8"/>
+                            <circle cx="68" cy="54" r="3.5" fill="#f43f5e" opacity="0.8"/>
+                        </g>
+                    </svg>
+                </div>
+
+            </div>
+
+            <!-- 우측 조작 버튼 패널 (맵 우측 배치) -->
+            <div class="w-full md:w-44 flex-shrink-0 flex flex-col justify-center">
+                <div class="grid grid-cols-2 md:grid-cols-1 md:flex md:flex-col gap-2 h-full justify-center">
+                    <!-- 1. 로봇 출발 -->
+                    <button id="btn-start" onclick="startSimulation()" class="flex items-center justify-between p-2.5 rounded-xl border-4 border-slate-900 bg-indigo-600 hover:bg-indigo-700 text-white font-jua text-base md:text-lg transition-all duration-150 shadow-[3px_3px_0px_#0f172a] hover:translate-y-[1px] hover:shadow-[1px_1px_0px_#0f172a] active:translate-y-[3px] active:shadow-none cursor-pointer">
+                        <div class="flex items-center gap-1.5 mx-auto">
+                            <span class="w-7 h-7 rounded-full bg-white flex items-center justify-center text-indigo-600 border border-slate-900 shadow-inner flex-shrink-0">
+                                <i class="fa-solid fa-play text-xs"></i>
+                            </span>
+                            <span class="tracking-wider">로봇 출발</span>
+                        </div>
+                    </button>
+                    <!-- 2. 뜨거운 불길 배치 -->
+                    <button id="tool-fire" onclick="selectTool('tool-fire')" class="flex items-center justify-between p-2.5 rounded-xl border-4 border-slate-900 bg-rose-500 hover:bg-rose-600 text-white font-jua text-base md:text-lg transition-all duration-150 shadow-[3px_3px_0px_#0f172a] hover:translate-y-[1px] hover:shadow-[1px_1px_0px_#0f172a] active:translate-y-[3px] active:shadow-none cursor-pointer">
+                        <div class="flex items-center gap-1.5 mx-auto">
+                            <span class="w-7 h-7 rounded-full bg-white flex items-center justify-center text-rose-500 border border-slate-900 shadow-inner flex-shrink-0">
+                                <i class="fa-solid fa-fire text-xs"></i>
+                            </span>
+                            <span class="tracking-wider">불길 배치</span>
+                        </div>
+                    </button>
+                    <!-- 3. 황금 보물 배치 -->
+                    <button id="tool-treasure" onclick="selectTool('tool-treasure')" class="flex items-center justify-between p-2.5 rounded-xl border-4 border-slate-900 bg-teal-600 hover:bg-teal-700 text-white font-jua text-base md:text-lg transition-all duration-150 shadow-[3px_3px_0px_#0f172a] hover:translate-y-[1px] hover:shadow-[1px_1px_0px_#0f172a] active:translate-y-[3px] active:shadow-none cursor-pointer">
+                        <div class="flex items-center gap-1.5 mx-auto">
+                            <span class="w-7 h-7 rounded-full bg-white flex items-center justify-center text-teal-600 border border-slate-900 shadow-inner flex-shrink-0">
+                                <i class="fa-solid fa-gem text-xs"></i>
+                            </span>
+                            <span class="tracking-wider">보물 배치</span>
+                        </div>
+                    </button>
+                    <!-- 4. 전체 초기화 -->
+                    <button id="btn-clear" onclick="clearEverything()" class="flex items-center justify-between p-2.5 rounded-xl border-4 border-slate-900 bg-slate-700 hover:bg-slate-800 text-white font-jua text-base md:text-lg transition-all duration-150 shadow-[3px_3px_0px_#0f172a] hover:translate-y-[1px] hover:shadow-[1px_1px_0px_#0f172a] active:translate-y-[3px] active:shadow-none cursor-pointer">
+                        <div class="flex items-center gap-1.5 mx-auto">
+                            <span class="w-7 h-7 rounded-full bg-white flex items-center justify-center text-slate-700 border-4 border-slate-900 shadow-inner flex-shrink-0">
+                                <i class="fa-solid fa-trash-can text-xs"></i>
+                            </span>
+                            <span class="tracking-wider">전체 초기화</span>
+                        </div>
+                    </button>
+                </div>
             </div>
 
         </div>
 
-        <!-- 하단: 미니 배지 알고리즘 흐름판 (설명문 제거 및 극소형 레이아웃 탑재) -->
-        <div class="bg-slate-100 border-4 border-slate-900 rounded-[20px] p-2 flex flex-col gap-1 shadow-inner">
-            <h3 class="font-jua text-sm text-slate-800 flex items-center gap-1.5 px-1">
-                <i class="fa-solid fa-route text-indigo-500"></i> 실시간 알고리즘 흐름
-            </h3>
-            <div id="flowCardsContainer" class="flex items-center gap-1.5 overflow-x-auto py-1 px-1 flow-scrollbar min-h-[50px]"></div>
+        <!-- 하단: 미니 배지 알고리즘 흐름판 (수동 스티어링 버튼 가로 슬라이더) -->
+        <div class="bg-slate-100 border-4 border-slate-900 rounded-[20px] p-2 flex items-center gap-2 shadow-inner relative">
+            <!-- 좌향 슬라이드 버튼 -->
+            <button onclick="slideFlow('left')" class="w-10 h-10 rounded-xl border-2 border-slate-900 bg-white hover:bg-slate-50 flex items-center justify-center text-slate-800 transition active:scale-95 shadow-[2px_2px_0px_#0f172a] cursor-pointer z-10 flex-shrink-0">
+                <i class="fa-solid fa-chevron-left text-sm"></i>
+            </button>
+            
+            <!-- 알고리즘 카드 드로잉 박스 (가로 꽉 차게 포지셔닝) -->
+            <div class="flex-1 overflow-hidden">
+                <div id="flowCardsContainer" class="flex items-center gap-2.5 py-1 px-1 overflow-x-auto no-scrollbar scroll-smooth min-h-[64px]"></div>
+            </div>
+
+            <!-- 우향 슬라이드 버튼 -->
+            <button onclick="slideFlow('right')" class="w-10 h-10 rounded-xl border-2 border-slate-900 bg-white hover:bg-slate-50 flex items-center justify-center text-slate-800 transition active:scale-95 shadow-[2px_2px_0px_#0f172a] cursor-pointer z-10 flex-shrink-0">
+                <i class="fa-solid fa-chevron-right text-sm"></i>
+            </button>
         </div>
 
     </div>
@@ -313,7 +339,6 @@
         <div class="bg-white rounded-[32px] border-8 border-emerald-400 p-8 max-w-md w-full text-center shadow-2xl relative overflow-hidden animate-[pop_0.3s_ease-out]">
             <span class="text-7xl text-amber-500 animate-bounce block"><i class="fa-solid fa-trophy"></i></span>
             <h2 class="font-jua text-4xl text-slate-800 mt-4 mb-2">미션 대성공! 🎉</h2>
-            <p class="text-slate-600 font-bold mb-6">스스로 설계한 알고리즘으로 완벽하게 모든 보물을 찾았습니다!</p>
             <p class="text-slate-600 font-bold mb-6">스스로 설계한 알고리즘으로 완벽하게 모든 보물을 찾았습니다!</p>
             <button onclick="closeSuccessModal()" class="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-jua text-2xl py-4 rounded-2xl transition transform active:scale-95 shadow-lg">
                 도전 계속하기 🚀
@@ -397,12 +422,12 @@
             const msgEl = document.getElementById('systemMessage');
             if (msgEl) {
                 msgEl.innerText = msg;
-                msgEl.className = "text-rose-500 font-jua text-sm md:text-base mt-1.5 transition-all duration-300 animate-pulse";
+                msgEl.className = "text-rose-500 font-jua text-xs sm:text-sm md:text-base mt-1.5 transition-all duration-300 animate-pulse whitespace-nowrap overflow-ellipsis overflow-hidden w-full block";
             }
             playCrashSound();
         }
 
-        // [좌표 비율 구하기 유틸리티 함수]
+        // [좌표 비율 구하기 유틸리티 함수] (4x5 맵 5열 기준)
         function getCoordPercent(val, axis) {
             if (axis === 'x') {
                 if (Number.isInteger(val)) {
@@ -410,7 +435,7 @@
                 }
                 const floorIdx = Math.floor(val);
                 const ceilIdx = Math.ceil(val);
-                if (floorIdx >= 0 && ceilIdx < 6) {
+                if (floorIdx >= 0 && ceilIdx < 5) {
                     return (colCoords[floorIdx] + colCoords[ceilIdx]) / 2;
                 }
                 return 50;
@@ -429,9 +454,9 @@
     </script>
 
     <script>
-        // 센터 대칭 격자 비례 배치 테이블
+        // 센터 대칭 격자 비례 배치 테이블 (4x5 조절)
         const rowCoords = [12, 37, 62, 87];
-        const colCoords = [10, 26, 42, 58, 74, 90];
+        const colCoords = [10, 30, 50, 70, 90]; // 5개 대칭 비례점
         
         let startRow = 3;             
         let startCol = 0;             
@@ -472,7 +497,7 @@
             treasures = {};
             const possibleNodes = [];
             for (let r = 0; r < 4; r++) {
-                for (let c = 0; c < 6; c++) {
+                for (let c = 0; c < 5; c++) { // 4x5 맵 기준 열 개수 5개로 한정
                     if (r === 3 && c === 0) continue; 
                     if (r === 2 && c === 0) continue; 
                     if (r === 3 && c === 1) continue; 
@@ -519,13 +544,29 @@
             runAnalysis();
         }
 
-        // [화점 그리기 함수 복원]
-        // 지도 초기화 과정에서 지도 위 바둑판 화점(교차점 점 모양 가이드)을 정교하게 렌더링합니다.
+        // [화점 그리기 함수 복원 - 4x5 맵 보정 완료]
         function renderHwajum() {
             const container = document.getElementById('hwajumLayer');
             container.innerHTML = '';
             for (let r = 0; r < 4; r++) {
-                for (let c = 0; c < 6; c++) {
+                for (let c = 0; c < 5; r++) { // 무한루프 유발 부위 r++ 복원 및 c++ 치환 보정
+                    const x = getCoordPercent(c, 'x');
+                    const y = getCoordPercent(r, 'y');
+                    const dot = document.createElement('div');
+                    dot.className = "absolute bg-slate-900 w-3.5 h-3.5 rounded-full opacity-90 shadow-sm pointer-events-none";
+                    dot.style.left = `calc(${x}% - 7px)`;
+                    dot.style.top = `calc(${y}% - 7px)`;
+                    container.appendChild(dot);
+                }
+            }
+        }
+
+        // 4x5 복원
+        function renderHwajum() {
+            const container = document.getElementById('hwajumLayer');
+            container.innerHTML = '';
+            for (let r = 0; r < 4; r++) {
+                for (let c = 0; c < 5; c++) { 
                     const x = getCoordPercent(c, 'x');
                     const y = getCoordPercent(r, 'y');
                     const dot = document.createElement('div');
@@ -583,7 +624,7 @@
                 possibleDirs.forEach(d => {
                     let nextR = currR + directions[d].r;
                     let nextC = currC + directions[d].c;
-                    if (nextR >= 0 && nextR < 4 && nextC >= 0 && nextC < 6) {
+                    if (nextR >= 0 && nextR < 4 && nextC >= 0 && nextC < 5) { // 4x5 가로 끝 범위 5로 보정
                         let midR = (currR + nextR) / 2;
                         let midC = (currC + nextC) / 2;
                         let segKey = `segment,${midR},${midC}`;
@@ -600,7 +641,7 @@
                         if (d === uTurnMap[currDir]) return; // 뒤돌아가는 길은 패스
                         let nextR = currR + directions[d].r;
                         let nextC = currC + directions[d].c;
-                        if (nextR >= 0 && nextR < 4 && nextC >= 0 && nextC < 6) {
+                        if (nextR >= 0 && nextR < 4 && nextC >= 0 && nextC < 5) { // 4x5 가로 끝 범위 5로 보정
                             let midR = (currR + nextR) / 2;
                             let midC = (currC + nextC) / 2;
                             let segKey = `segment,${midR},${midC}`;
@@ -702,7 +743,7 @@
             const container = document.getElementById('guidesLayer');
             container.innerHTML = '';
             for (let r = 0; r < 4; r++) {
-                for (let c = 0; c < 6; c++) {
+                for (let c = 0; c < 5; c++) { // 4x5 가로 끝 범위 보정
                     const x = getCoordPercent(c, 'x');
                     const y = getCoordPercent(r, 'y');
                     const dot = document.createElement('div');
@@ -770,8 +811,6 @@
         }
 
         // [비주얼 대격변: 실제 좌/우 도로 표지판 형태의 수학적 직각 90도 화살표 설계 및 좌우 고대비 색상 분리]
-        // 이미지 image_924fe5.png 의 빨간 원형 테두리 표지판 느낌을 고대비 감성으로 완벽 탑재했습니다.
-        // 특수아동을 위해 좌회전은 고대비 빨간색 원테두리+파스텔 붉은배경, 우회전은 고대비 파란색 원테두리+하늘색배경으로 확실히 분리했습니다.
         function getTurnSvg(type, entryDir) {
             let baseAngle = 0;
             if (entryDir === "Up") baseAngle = 0;
@@ -787,23 +826,23 @@
             let arrowElements = "";
             if (isLeft) {
                 arrowElements = `
-                    <circle cx="50" cy="74" r="4.5" fill="#ffffff" stroke="none" />
-                    <path d="M 50 74 L 50 50 L 34 50" fill="none" stroke="${arrowCol}" stroke-width="11" stroke-linecap="square"/>
-                    <polygon points="20,50 36,34 36,66" fill="${arrowCol}" />
+                    <circle cx="50" cy="74" r="5" fill="#1e293b" />
+                    <path d="M 50 74 L 50 50 L 36 50" fill="none" stroke="${arrowCol}" stroke-width="14" stroke-linecap="square"/>
+                    <polygon points="16,50 38,28 38,72" fill="${arrowCol}" />
                 `;
             } else {
                 arrowElements = `
-                    <circle cx="50" cy="74" r="4.5" fill="#ffffff" stroke="none" />
-                    <path d="M 50 74 L 50 50 L 66 50" fill="none" stroke="${arrowCol}" stroke-width="11" stroke-linecap="square"/>
-                    <polygon points="80,50 64,34 64,66" fill="${arrowCol}" />
+                    <circle cx="50" cy="74" r="5" fill="#1e293b" />
+                    <path d="M 50 74 L 50 50 L 64 50" fill="none" stroke="${arrowCol}" stroke-width="14" stroke-linecap="square"/>
+                    <polygon points="84,50 62,28 62,72" fill="${arrowCol}" />
                 `;
             }
 
             return `
-                <svg viewBox="0 0 100 100" class="w-full h-full drop-shadow-lg" style="transform: rotate(${baseAngle}deg); transform-origin: 50% 50%;">
-                    <!-- 표지판 링 및 내부 보조 가이드라인 대시 점선 -->
-                    <circle cx="50" cy="50" r="42" fill="${bgCol}" stroke="${borderCol}" stroke-width="7"/>
-                    <circle cx="50" cy="50" r="38" fill="none" stroke="#ffffff" stroke-width="1.5" stroke-dasharray="3,3" opacity="0.5"/>
+                <svg viewBox="0 0 100 100" class="w-full h-full drop-shadow-xl" style="transform: rotate(${baseAngle}deg); transform-origin: 50% 50%;">
+                    <!-- 테두리 두께를 9로 확대하고 안쪽 가이드 라인 최적화 -->
+                    <circle cx="50" cy="50" r="42" fill="${bgCol}" stroke="${borderCol}" stroke-width="9"/>
+                    <circle cx="50" cy="50" r="38" fill="none" stroke="#ffffff" stroke-width="2" stroke-dasharray="3,3" opacity="0.6"/>
                     ${arrowElements}
                 </svg>
             `;
@@ -982,22 +1021,22 @@
 
             [btnStart, toolFire, toolTreasure, btnClear].forEach(b => b.disabled = isSimulating);
             if (isSimulating) {
-                btnStart.className = `flex items-center bg-slate-200 text-slate-400 ${disabledBtnClass} p-1.5 md:p-2.5 rounded-xl border-4 font-jua text-base md:text-xl`;
-                toolFire.className = `flex items-center bg-slate-200 text-slate-400 ${disabledBtnClass} p-1.5 md:p-2.5 rounded-xl border-4 font-jua text-base md:text-xl`;
-                toolTreasure.className = `flex items-center bg-slate-200 text-slate-400 ${disabledBtnClass} p-1.5 md:p-2.5 rounded-xl border-4 font-jua text-base md:text-xl`;
+                btnStart.className = `flex items-center bg-slate-200 text-slate-400 ${disabledBtnClass} p-2.5 rounded-xl border-4 font-jua text-base md:text-lg`;
+                toolFire.className = `flex items-center bg-slate-200 text-slate-400 ${disabledBtnClass} p-2.5 rounded-xl border-4 font-jua text-base md:text-lg`;
+                toolTreasure.className = `flex items-center bg-slate-200 text-slate-400 ${disabledBtnClass} p-2.5 rounded-xl border-4 font-jua text-base md:text-lg`;
                 return;
             }
 
-            btnStart.className = `flex items-center bg-indigo-600 text-white ${activeBtnClass} p-1.5 md:p-2.5 rounded-xl border-4 font-jua text-base md:text-xl`;
+            btnStart.className = `flex items-center bg-indigo-600 text-white ${activeBtnClass} p-2.5 rounded-xl border-4 font-jua text-base md:text-lg`;
             toolFire.className = (selectedTool === 'tool-fire') ? 
-                `flex items-center bg-rose-500 text-white scale-105 ring-4 ring-red-300 p-1.5 md:p-2.5 rounded-xl border-4 font-jua text-base md:text-xl shadow-[3px_3px_0px_#0f172a]` :
-                `flex items-center bg-rose-500 text-white ${activeBtnClass} p-1.5 md:p-2.5 rounded-xl border-4 font-jua text-base md:text-xl`;
+                `flex items-center bg-rose-500 text-white scale-105 ring-4 ring-red-300 p-2.5 rounded-xl border-4 font-jua text-base md:text-lg shadow-[3px_3px_0px_#0f172a]` :
+                `flex items-center bg-rose-500 text-white ${activeBtnClass} p-2.5 rounded-xl border-4 font-jua text-base md:text-lg`;
             toolTreasure.className = (selectedTool === 'tool-treasure') ? 
-                `flex items-center bg-teal-600 text-white scale-105 ring-4 ring-teal-300 p-1.5 md:p-2.5 rounded-xl border-4 font-jua text-base md:text-xl shadow-[3px_3px_0px_#0f172a]` :
-                `flex items-center bg-teal-600 text-white ${activeBtnClass} p-1.5 md:p-2.5 rounded-xl border-4 font-jua text-base md:text-xl`;
+                `flex items-center bg-teal-600 text-white scale-105 ring-4 ring-teal-300 p-2.5 rounded-xl border-4 font-jua text-base md:text-lg shadow-[3px_3px_0px_#0f172a]` :
+                `flex items-center bg-teal-600 text-white ${activeBtnClass} p-2.5 rounded-xl border-4 font-jua text-base md:text-lg`;
             
             btnStart.disabled = (selectedTool === 'tool-treasure');
-            if(selectedTool === 'tool-treasure') btnStart.className = `flex items-center bg-slate-200 text-slate-400 ${disabledBtnClass} p-1.5 md:p-2.5 rounded-xl border-4 font-jua text-base md:text-xl`;
+            if(selectedTool === 'tool-treasure') btnStart.className = `flex items-center bg-slate-200 text-slate-400 ${disabledBtnClass} p-2.5 rounded-xl border-4 font-jua text-base md:text-lg`;
         }
 
         function selectTool(toolId) {
@@ -1009,14 +1048,17 @@
             updateAnalysisMessage();
         }
 
-        // [흐름판 미니어처 SVG 뱃지 렌더러]
+        // [흐름판 고도화: 미니어처 표지판 카드 이미지 크기 극대화 설계 및 '>' 구분자 제거 완료]
+        // [골드 실시간 자동 스크롤 동기화 연산 로직 내장]
+        // 로봇 주행(activeSimIndex 활성 상태) 시 활성 카드가 슬라이더 뷰의 정중앙에 오도록 보정하고,
+        // 배치 설계 시(activeSimIndex === -1) 최신 생성된 뱃지로 뷰를 부드럽게 무한 가로 우향 이동시킵니다.
         function renderCompactAlgorithmBadges(activeSimIndex = -1) {
             const flowContainer = document.getElementById('flowCardsContainer');
             if (!flowContainer) return; flowContainer.innerHTML = '';
             
             let cardDataList = [{ 
                 type: 'start', 
-                icon: `<svg viewBox="0 0 100 100" class="w-6 h-6"><text y="75" x="15" font-size="70">🚀</text></svg>`, 
+                icon: `<svg viewBox="0 0 100 100" class="w-10 h-10"><text y="75" x="15" font-size="70">🚀</text></svg>`, 
                 bg: 'bg-indigo-600 text-white border-indigo-700', 
                 stepIndex: 0 
             }];
@@ -1029,7 +1071,7 @@
                 // 직진 (초록색 가이드 표지판)
                 cardDataList.push({ 
                     type: 'move', 
-                    icon: `<svg viewBox="0 0 100 100" class="w-6 h-6"><circle cx="50" cy="50" r="42" fill="#e6f4ea" stroke="#10b981" stroke-width="8"/><circle cx="50" cy="74" r="4.5" fill="#ffffff" stroke="none"/><path d="M 50 74 L 50 26" fill="none" stroke="#1e293b" stroke-width="12" stroke-linecap="square"/><polygon points="50,20 34,36 66,36" fill="#1e293b"/></svg>`, 
+                    icon: `<svg viewBox="0 0 100 100" class="w-10 h-10"><circle cx="50" cy="50" r="42" fill="#e6f4ea" stroke="#10b981" stroke-width="8"/><circle cx="50" cy="74" r="4.5" fill="#ffffff" stroke="none"/><path d="M 50 74 L 50 26" fill="none" stroke="#1e293b" stroke-width="12" stroke-linecap="square"/><polygon points="50,20 34,36 66,36" fill="#1e293b"/></svg>`, 
                     bg: 'bg-emerald-500 text-white border-emerald-600', 
                     stepIndex: i * 2 - 1 
                 });
@@ -1038,7 +1080,7 @@
                 if (treasures[key]) {
                     cardDataList.push({ 
                         type: 'treasure', 
-                        icon: `<svg viewBox="0 0 100 100" class="w-6 h-6"><text y="75" x="15" font-size="70">💎</text></svg>`, 
+                        icon: `<svg viewBox="0 0 100 100" class="w-10 h-10"><text y="75" x="15" font-size="70">💎</text></svg>`, 
                         bg: 'bg-teal-600 text-white border-teal-700 animate-bounce', 
                         stepIndex: i * 2 
                     });
@@ -1048,7 +1090,7 @@
                 if (hazards[key]) {
                     cardDataList.push({ 
                         type: 'hazard', 
-                        icon: `<svg viewBox="0 0 100 100" class="w-6 h-6"><text y="75" x="15" font-size="70">🔥</text></svg>`, 
+                        icon: `<svg viewBox="0 0 100 100" class="w-10 h-10"><text y="75" x="15" font-size="70">🔥</text></svg>`, 
                         bg: 'bg-rose-500 text-white border-rose-600', 
                         stepIndex: i * 2 
                     });
@@ -1059,14 +1101,14 @@
                 if (cmd === 'left') {
                     cardDataList.push({ 
                         type: 'left', 
-                        icon: `<svg viewBox="0 0 100 100" class="w-6 h-6"><circle cx="50" cy="50" r="42" fill="#fecaca" stroke="#dc2626" stroke-width="8"/><circle cx="50" cy="74" r="4.5" fill="#ffffff" stroke="none"/><path d="M 50 74 L 50 50 L 34 50" fill="none" stroke="#1e293b" stroke-width="12" stroke-linecap="square"/><polygon points="20,50 36,34 36,66" fill="#1e293b"/></svg>`, 
+                        icon: `<svg viewBox="0 0 100 100" class="w-10 h-10"><circle cx="50" cy="50" r="42" fill="#fecaca" stroke="#dc2626" stroke-width="9"/><circle cx="50" cy="74" r="5" fill="#1e293b"/><path d="M 50 74 L 50 50 L 34 50" fill="none" stroke="#1e293b" stroke-width="14" stroke-linecap="square"/><polygon points="16,50 38,28 38,72" fill="#1e293b"/></svg>`, 
                         bg: 'bg-rose-500 text-white border-rose-600', 
                         stepIndex: i * 2 
                     });
                 } else if (cmd === 'right') {
                     cardDataList.push({ 
                         type: 'right', 
-                        icon: `<svg viewBox="0 0 100 100" class="w-6 h-6"><circle cx="50" cy="50" r="42" fill="#bae6fd" stroke="#2563eb" stroke-width="8"/><circle cx="50" cy="74" r="4.5" fill="#ffffff" stroke="none"/><path d="M 50 74 L 50 50 L 66 50" fill="none" stroke="#1e293b" stroke-width="12" stroke-linecap="square"/><polygon points="80,50 64,34 64,66" fill="#1e293b"/></svg>`, 
+                        icon: `<svg viewBox="0 0 100 100" class="w-10 h-10"><circle cx="50" cy="50" r="42" fill="#bae6fd" stroke="#2563eb" stroke-width="9"/><circle cx="50" cy="74" r="5" fill="#1e293b"/><path d="M 50 74 L 50 50 L 66 50" fill="none" stroke="#1e293b" stroke-width="14" stroke-linecap="square"/><polygon points="84,50 62,28 62,72" fill="#1e293b"/></svg>`, 
                         bg: 'bg-sky-500 text-white border-sky-600', 
                         stepIndex: i * 2 
                     });
@@ -1074,43 +1116,79 @@
             }
             
             if (cardDataList.length === 1) {
-                flowContainer.innerHTML = `<div class="text-slate-400 text-xs font-jua py-2 w-full text-center">교차로를 터치해 회전 명령을 내리면 알고리즘 순서가 실시간으로 나타나요!</div>`;
+                flowContainer.innerHTML = `<div class="text-slate-400 text-xs font-jua py-4 w-full text-center">교차로를 터치해 회전 명령을 내리면 알고리즘 순서가 실시간으로 나타나요!</div>`;
                 return;
             }
 
             cardDataList.forEach((card, index) => {
                 const badgeDiv = document.createElement('div');
                 let isHighlight = (activeSimIndex !== -1 && card.stepIndex === activeSimIndex);
-                badgeDiv.className = `flex-shrink-0 w-9 h-9 rounded-xl border-2 flex items-center justify-center transition-all duration-300 ${card.bg} ${(activeSimIndex === -1 || isHighlight) ? 'opacity-100 scale-100' : 'opacity-40 scale-90'} ${isHighlight ? 'ring-4 ring-yellow-400' : ''}`;
-                badgeDiv.innerHTML = card.icon; flowContainer.appendChild(badgeDiv);
-                if (index < cardDataList.length - 1) {
-                    const arrow = document.createElement('div');
-                    arrow.className = `flex-shrink-0 text-slate-400 text-[10px] px-0.5 ${(activeSimIndex === -1 || (activeSimIndex >= card.stepIndex)) ? 'opacity-100' : 'opacity-30'}`;
-                    arrow.innerHTML = '<i class="fa-solid fa-chevron-right"></i>'; flowContainer.appendChild(arrow);
+                badgeDiv.className = `flex-shrink-0 w-14 h-14 rounded-2xl border-4 flex items-center justify-center transition-all duration-300 ${card.bg} ${(activeSimIndex === -1 || isHighlight) ? 'opacity-100 scale-100' : 'opacity-40 scale-90'} ${isHighlight ? 'ring-4 ring-yellow-400' : ''}`;
+                badgeDiv.innerHTML = card.icon; 
+                
+                // 하이라이트 탐지용 플래그 부착
+                if (isHighlight) {
+                    badgeDiv.setAttribute('data-highlight', 'true');
                 }
+                
+                flowContainer.appendChild(badgeDiv);
             });
+
+            // [골드 특수 설계 - 지능형 마이크로 타겟 자동 스크롤 동기화]
+            // scrollIntoView는 윈도우 창 전체가 출렁일 수 있으므로 오직 flowContainer 내부에서만
+            // 물리 기하 계산 기반으로 정밀하게 세팅해 줍니다. (딜레이 버그 방지를 위해 50ms 비동기 실행)
+            setTimeout(() => {
+                const highlightedBadge = flowContainer.querySelector('[data-highlight="true"]');
+                if (highlightedBadge) {
+                    const containerWidth = flowContainer.clientWidth;
+                    const badgeLeft = highlightedBadge.offsetLeft;
+                    const badgeWidth = highlightedBadge.clientWidth;
+                    flowContainer.scrollTo({
+                        left: badgeLeft - (containerWidth / 2) + (badgeWidth / 2),
+                        behavior: 'smooth'
+                    });
+                } else if (activeSimIndex === -1) {
+                    // 설계/배치 도중에는 뒷단에 붙는 카드를 인지할 수 있게 자동 끝 이동
+                    flowContainer.scrollTo({
+                        left: flowContainer.scrollWidth,
+                        behavior: 'smooth'
+                    });
+                }
+            }, 50);
+        }
+
+        // [실시간 흐름판 슬라이딩 애니메이션 제어 스크립트]
+        function slideFlow(direction) {
+            const container = document.getElementById('flowCardsContainer');
+            if (!container) return;
+            const scrollAmount = 200; // 한 번 클릭 시 스크롤 이동 픽셀 거리
+            if (direction === 'left') {
+                container.scrollBy({ left: -scrollAmount, behavior: 'smooth' });
+            } else {
+                container.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+            }
         }
 
         function renderClickAnchors() {
             const container = document.getElementById('anchorsLayer'); container.innerHTML = '';
             if (isSimulating) return;
 
-            // 가로 세그먼트 앵커 생성
+            // 가로 세그먼트 앵커 생성 (4x5 조향에 맞추어 열 크기 제한)
             for (let r = 0; r < 4; r++) { 
-                for (let c = 0.5; c < 5; c++) {
+                for (let c = 0.5; c < 4; c++) { 
                     createSegmentAnchor(r, c, container); 
                 }
             }
             // 세로 세그먼트 앵커 생성
             for (let r = 0; r < 3; r += 0.5) { 
                 if (Number.isInteger(r)) continue;
-                for (let c = 0; c < 6; c++) {
+                for (let c = 0; c < 5; c++) { // 4x5 가로 범위 제한
                     createSegmentAnchor(r, c, container); 
                 }
             }
 
             for (let r = 0; r < 4; r++) {
-                for (let c = 0; c < 6; c++) {
+                for (let c = 0; c < 5; c++) { // 4x5 가로 범위 제한
                     if (r === 3 && c === 0) continue;
                     const x = getCoordPercent(c, 'x'); const y = getCoordPercent(r, 'y'); const key = `${r},${c}`;
                     const anchor = document.createElement('button');
@@ -1241,7 +1319,7 @@
                 return;
             }
 
-            // [어려움 모드 수동 코딩 및 물리적 90도 회전 진출 제약 계산 메커니즘]
+            // [어려움 모드 수동 코딩 및 물리적 90도 회전 진출 제약 계산 메커니즘] (4x5 맵 보정)
             if (currentMode === 'hard') {
                 let entryDir = traceResults.entryDirs[key] || "Right";
                 let leftDir = turnLeftMap[entryDir];
@@ -1249,11 +1327,11 @@
                 
                 let leftR = r + directions[leftDir].r;
                 let leftC = c + directions[leftDir].c;
-                let canLeft = (leftR >= 0 && leftR < 4 && leftC >= 0 && leftC < 6);
+                let canLeft = (leftR >= 0 && leftR < 4 && leftC >= 0 && leftC < 5); // 5열 한정
                 
                 let rightR = r + directions[rightDir].r;
                 let rightC = c + directions[rightDir].c;
-                let canRight = (rightR >= 0 && rightR < 4 && rightC >= 0 && rightC < 6);
+                let canRight = (rightR >= 0 && rightR < 4 && rightC >= 0 && rightC < 5); // 5열 한정
                 
                 const currentCmd = boardCommands[key];
                 let nextCmd = null;
@@ -1285,7 +1363,7 @@
                 return;
             }
 
-            // [보통 모드 지능형 교차로 스티어링 시스템 구현]
+            // [보통 모드 지능형 교차로 스티어링 시스템 구현] (4x5 맵 보정)
             let entryDir = traceResults.entryDirs[key] || "Right";
             let oppDir = uTurnMap[entryDir];
             const currentCmd = boardCommands[key];
@@ -1313,7 +1391,7 @@
                 let leftDir = turnLeftMap[entryDir];
                 let nR = r + directions[leftDir].r;
                 let nC = c + directions[leftDir].c;
-                if (nR >= 0 && nR < 4 && nC >= 0 && nC < 6) {
+                if (nR >= 0 && nR < 4 && nC >= 0 && nC < 5) { // 5열 한정
                     let segKey = `segment,${(r + nR) / 2},${(c + nC) / 2}`;
                     boardCommands[segKey] = 'straight';
                     boardCommands[key] = 'left';
@@ -1326,7 +1404,7 @@
                 let rightDir = turnRightMap[entryDir];
                 let nR = r + directions[rightDir].r;
                 let nC = c + directions[rightDir].c;
-                if (nR >= 0 && nR < 4 && nC >= 0 && nC < 6) {
+                if (nR >= 0 && nR < 4 && nC >= 0 && nC < 5) { // 5열 한정
                     let segKey = `segment,${(r + nR) / 2},${(c + nC) / 2}`;
                     boardCommands[segKey] = 'straight';
                     boardCommands[key] = 'right';
@@ -1341,7 +1419,7 @@
                 let straightDir = entryDir;
                 let nR = r + directions[straightDir].r;
                 let nC = c + directions[straightDir].c;
-                if (nR >= 0 && nR < 4 && nC >= 0 && nC < 6) {
+                if (nR >= 0 && nR < 4 && nC >= 0 && nC < 5) { // 5열 한정
                     let segKey = `segment,${(r + nR) / 2},${(c + nC) / 2}`;
                     boardCommands[segKey] = 'straight';
                 }
@@ -1351,43 +1429,41 @@
             runAnalysis();
         }
 
-        // [핵심 업그레이드: 인지 치료 최적화형 가이드 배지 내장 시스템 문구 렌더러]
-        // 쉬움, 보통, 어려움 단계마다 요구되는 행동 수칙과 조작 대상을 아이콘 매칭 뱃지로 직접 그려서 이해를 돕습니다.
+        // [한 줄 최적화: 아동 치료용 설명 및 가이드 문구 1줄화 조정 완료]
         function updateAnalysisMessage() {
             const msgEl = document.getElementById('systemMessage'); if (!msgEl) return;
-            if (selectedTool === 'tool-treasure') { msgEl.innerHTML = "💎 <span class='text-teal-600 font-bold'>[보물 배치]</span> 지도의 교차로를 터치하여 보물상자(<svg viewBox='0 0 100 100' class='inline-block w-5 h-5 align-middle'><path d='M 12 36 L 12 18 C 12 18, 18 8, 26 16 L 26 36 Z' fill='#b91c1c'/><path d='M 88 36 L 88 18 C 88 18, 82 8, 74 16 L 74 36 Z' fill='#b91c1c'/><path d='M 12 18 Q 50 -8 88 18 L 88 28 Q 50 8 12 28 Z' fill='#92400e'/><rect x='12' y='38' width='76' height='48' rx='8' fill='#78350f'/><rect x='12' y='38' width='14' height='48' fill='#fbbf24'/><rect x='74' y='38' width='14' height='48' fill='#fbbf24'/><rect x='44' y='32' width='12' height='24' fill='#fbbf24' rx='4'/></svg>)를 올려두세요."; return; }
-            if (selectedTool === 'tool-fire') { msgEl.innerHTML = "🔥 <span class='text-red-500 font-bold'>[불길 배치]</span> 지도의 교차로를 터치하여 장애물을 설치하세요."; return; }
-            if (Object.keys(treasures).length === 0) { msgEl.innerHTML = "💎 <span class='text-teal-500 font-bold'>[보물 배치 필요]</span> 지도를 터치해 보물상자를 올려놓으세요!"; return; }
+            if (selectedTool === 'tool-treasure') { msgEl.innerHTML = "💎 <span>[보물 배치]</span> 지도의 교차로를 터치하여 보물상자를 올려두세요."; return; }
+            if (selectedTool === 'tool-fire') { msgEl.innerHTML = "🔥 <span>[불길 배치]</span> 지도의 교차로를 터치하여 장애물을 설치하세요."; return; }
+            if (Object.keys(treasures).length === 0) { msgEl.innerHTML = "💎 <span>[보물상자 없음]</span> 지도를 터치해 보물상자를 올려놓으세요!"; return; }
 
-            // 에러 경고 상태 분석
+            // 에러 경고 상태 분석 (한 줄 가독성 최적화)
             let errorKeys = Object.keys(traceResults.warnings);
             if (errorKeys.length > 0) {
                 let errType = traceResults.warnings[errorKeys[0]];
-                let modeBadge = currentMode === 'easy' ? "🟢 [쉬움]" : (currentMode === 'normal' ? "🔵 [보통]" : "🔴 [어려움]");
-                if (errType === "branch") msgEl.innerHTML = `⚠️ <span class='text-rose-600 font-bold'>${modeBadge}</span> 로봇은 외길을 좋아해요. 한 방향으로만 선을 이어주세요!`;
-                else if (errType === "invalid_turn_no_road") msgEl.innerHTML = `⚠️ <span class='text-amber-600 font-bold'>${modeBadge}</span> 회전 지시 방향에 연결된 나가는 초록선이 끊겨있어요!`;
-                else if (errType === "loop") msgEl.innerHTML = `🔄 <span class='text-indigo-600 font-bold'>${modeBadge}</span> 빙글빙글 도는 무한 굴레를 끊고 바른 길을 열어주세요.`;
+                let modeBadge = currentMode === 'easy' ? "🟢[쉬움]" : (currentMode === 'normal' ? "🔵[보통]" : "🔴[어려움]");
+                if (errType === "branch") msgEl.innerHTML = `⚠️ <span class='text-rose-600 font-bold'>${modeBadge}</span> 로봇은 외길을 좋아해요. 선을 한 줄로만 이어주세요!`;
+                else if (errType === "invalid_turn_no_road") msgEl.innerHTML = `⚠️ <span class='text-amber-600 font-bold'>${modeBadge}</span> 회전 지시 방향에 나가는 선이 끊겨있어요!`;
+                else if (errType === "loop") msgEl.innerHTML = `🔄 <span class='text-indigo-600 font-bold'>${modeBadge}</span> 빙글빙글 도는 무한 굴레 도로를 바로잡아 주세요.`;
                 return;
             }
 
             // 전체 성공 체크
             let allCollected = true; Object.keys(treasures).forEach(k => { if (!traceResults.visited.has(k)) allCollected = false; });
             if (allCollected) {
-                msgEl.innerHTML = "✨ <span class='text-emerald-600 font-bold'>[설계 완벽!]</span> 모든 조건이 만족되었습니다. 이제 <span class='bg-indigo-600 text-white font-jua px-2 py-0.5 rounded-lg text-xs border border-indigo-700 mx-1'>로봇 출발</span> 버튼을 눌러보세요! 🚀";
+                msgEl.innerHTML = "✨ <span class='text-emerald-600 font-bold'>[설계 완벽!]</span> 준비 완료! 우측의 <span class='bg-indigo-600 text-white font-jua px-2 py-0.5 rounded-lg text-xs border border-indigo-700 mx-1'>로봇 출발</span> 버튼을 눌러보세요! 🚀";
                 return;
             }
 
-            // 난이도별 프리미엄 인지 치료용 설명 가이드 빌드
-            // 아이들이 직접 찾아 누르는 구성요소를 설명 박스 안에 100% 동일한 비주얼 뱃지로 그려서 제시합니다.
-            const segmentBadge = `<span class='inline-flex items-center bg-emerald-100 border border-emerald-300 text-emerald-700 text-xs font-bold px-2 py-0.5 rounded-lg mx-1 gap-1'><span class='w-3 h-1.5 bg-emerald-500 rounded'></span>초록선 길</span>`;
-            const h화점Badge = `<span class='inline-flex items-center bg-sky-100 border border-sky-300 text-sky-700 text-xs font-bold px-2 py-0.5 rounded-lg mx-1 gap-1'><span class='w-3 h-3 rounded-full border border-sky-400 bg-sky-200'></span>동그란 교차점</span>`;
+            // 난이도별 요약 설명 가이드 빌드 (줄바꿈 원인 문장 길이 압축 및 뱃지 간소화)
+            const segmentBadge = `<span class='inline-flex items-center text-emerald-600 font-bold mx-0.5'>초록선</span>`;
+            const h화점Badge = `<span class='inline-flex items-center text-sky-600 font-bold mx-0.5'>교차점</span>`;
 
             if (currentMode === 'easy') {
-                msgEl.innerHTML = `🟢 <span class='text-emerald-600 font-bold'>[쉬움]</span> 출발지에서 보물까지 ${segmentBadge}을 연결하세요! 회전이 자동으로 만들어져요.`;
+                msgEl.innerHTML = `🟢 <b>[쉬움]</b> 출발지에서 보물까지 ${segmentBadge}을 연결하세요! 회전이 자동 생성돼요.`;
             } else if (currentMode === 'normal') {
-                msgEl.innerHTML = `🔵 <span class='text-indigo-600 font-bold'>[보통]</span> 출발지에서 ${segmentBadge}과 ${h화점Badge}을 선택하세요!`;
+                msgEl.innerHTML = `🔵 <b>[보통]</b> 출발지에서 ${segmentBadge}과 ${h화점Badge}을 직접 설계하세요!`;
             } else if (currentMode === 'hard') {
-                msgEl.innerHTML = `🔴 <span class='text-rose-600 font-bold'>[어려움]</span> 출발지에서 보물까지 ${segmentBadge}과 ${h화점Badge}을 연결하세요!`;
+                msgEl.innerHTML = `🔴 <b>[어려움]</b> 출발지에서 보물까지 ${segmentBadge}과 ${h화점Badge}을 알맞게 수동 코딩하세요!`;
             }
         }
 
@@ -1427,7 +1503,7 @@
                     playSuccessSound(); document.getElementById('successModal').classList.remove('hidden'); isSimulating = false; updateButtonStates(); renderCompactAlgorithmBadges(-1); return;
                 }
                 if (hazards[`${currR},${currC}`]) { playExplosionSound(); isSimulating = false; updateButtonStates(); renderCompactAlgorithmBadges(-1); return; }
-                if (currR < 0 || currR > 3 || currC < 0 || currC > 5) { playCrashSound(); isSimulating = false; updateButtonStates(); renderCompactAlgorithmBadges(-1); return; }
+                if (currR < 0 || currR > 3 || currC < 0 || currC > 4) { playCrashSound(); isSimulating = false; updateButtonStates(); renderCompactAlgorithmBadges(-1); return; } // 4x5 가로 끝 범위 보정
 
                 const cmd = boardCommands[`${currR},${currC}`];
                 if (cmd) {

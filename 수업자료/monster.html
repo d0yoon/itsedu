@@ -917,7 +917,7 @@
                         bgClass = 'bg-emerald-500 border-emerald-700 text-white';
                         labelText = '앞으로';
                     } else if (card === 'left') {
-                        iconHtml = `<svg viewBox="0 0 100 100" class="w-12 h-12"><circle cx="50" cy="50" r="42" fill="#fecaca" stroke="#dc2626" stroke-width="9"/><path d="M 55 78 L 55 42 L 30 42" fill="none" stroke="#1e293b" stroke-width="12" stroke-linecap="square"/><polygon points="12,42 34,20 34,64" fill="#1e293b"/></svg>`;
+                        iconHtml = `<svg viewBox="0 0 100 100" class="w-12 h-12"><circle cx="50" cy="50" r="42" fill="#fecaca" stroke="#dc2626" stroke-width="9"/><path d="M 55 78 L 55 42 L 30 42" fill="none" stroke="#1e293b" stroke-width="14" stroke-linecap="square"/><polygon points="12,42 34,20 34,64" fill="#1e293b"/></svg>`;
                         bgClass = 'bg-rose-500 border-rose-700 text-white';
                         labelText = '왼쪽';
                     } else if (card === 'right') {
@@ -951,7 +951,6 @@
                 const badgeDiv = document.createElement('div');
                 let isHighlight = (activeSimIndex !== -1 && card.stepIndex === activeSimIndex);
                 
-                // [v1.8 패치] 카드의 크기를 w-20(80px), h-[100px]로 축소하여 세로 잘림을 완전히 해소
                 badgeDiv.className = `flex-shrink-0 w-20 h-[100px] rounded-2xl border-4 flex flex-col items-center justify-between p-1.5 transition-all duration-300 ${card.bg} ${(activeSimIndex === -1 || isHighlight) ? 'opacity-100 scale-100' : 'opacity-40 scale-90'} ${isHighlight ? 'ring-4 ring-yellow-400 border-yellow-500 scale-105 shadow-lg' : ''} cursor-pointer hover:brightness-105 relative`;
                 
                 badgeDiv.innerHTML = `
@@ -959,7 +958,6 @@
                     <span class="text-[13px] md:text-[14px] font-black font-jua tracking-tight leading-none truncate w-full text-center pb-1">${card.label}</span>
                 `; 
 
-                // 카드 모드 전용 상호작용 매핑
                 if (currentMode === 'card') {
                     if (card.isInteractive) {
                         badgeDiv.onclick = (e) => {
@@ -1018,20 +1016,13 @@
             }
         }
 
-        // 터치 조작 인터랙션 앵커 포인트 매핑
         function renderClickAnchors() {
             const container = document.getElementById('anchorsLayer'); 
             container.innerHTML = '';
             
             if (isSimulating || currentMode === 'card') return;
 
-            // 칸 내부 터치 앵커 (회전 지시판 전환용)
-            for (let r = 0; r < 3; r++) {
-                for (let c = 0; c < 5; r++) { // BUG FIX: c++여야 하는데 r++로 기입됨! (원래 코드 무한 루프 위험 해결)
-                    // ...
-                }
-            }
-            // 자바스크립트 버그 교정 포함: 기존 monster.html에서 복원된 루프
+            // 자바스크립트 오타 교정 완료된 3x5 정식 루프
             for (let r = 0; r < 3; r++) {
                 for (let c = 0; c < 5; c++) {
                     if (r === 0 && c === 0) continue; 
@@ -1069,7 +1060,6 @@
             }
         }
 
-        // 수평/수직 도로 연결 교량 생성 (v1.8 패치: 물리적 오프셋을 없애고 translate 전폭 적용)
         function createBridgeAnchor(r, c, type, container) {
             let x, y, width, height, key;
             const isHorizontal = (type === "h"); 
@@ -1151,7 +1141,6 @@
             // systemMessage 엘리먼트 가딩
         }
 
-        // 시뮬레이션
         function startSimulation() {
             if (isSimulating) return;
             
@@ -1419,7 +1408,6 @@
             runAnalysis(); 
         }
 
-        // [v1.4 핵심 터치 및 드래그 스크롤 바인딩 엔진]
         const setupTabletDragScroll = () => {
             const slider = document.getElementById('flowCardsContainer');
             if (!slider) return;
@@ -1428,7 +1416,6 @@
             let startX;
             let scrollLeft;
 
-            // 마우스 드래그 스크롤 연동
             slider.addEventListener('mousedown', (e) => {
                 isDown = true;
                 startX = e.pageX - slider.offsetLeft;
@@ -1447,11 +1434,10 @@
                 if (!isDown) return;
                 e.preventDefault();
                 const x = e.pageX - slider.offsetLeft;
-                const walk = (x - startX) * 1.5; // 스크롤 감도 배율 보정
+                const walk = (x - startX) * 1.5; 
                 slider.scrollLeft = scrollLeft - walk;
             });
 
-            // 태블릿 터치 스와이프 안정화 코드 추가
             slider.addEventListener('touchstart', (e) => {
                 isDown = true;
                 startX = e.touches[0].pageX - slider.offsetLeft;
@@ -1472,7 +1458,7 @@
 
         window.onload = function() {
             switchControlMode('road'); 
-            setupTabletDragScroll(); // 로딩 완료 후 기동
+            setupTabletDragScroll(); 
         };
     </script>
 </body>

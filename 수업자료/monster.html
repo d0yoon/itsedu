@@ -30,6 +30,7 @@
             user-select: none;
             -webkit-user-select: none;
             -webkit-overflow-scrolling: touch;
+            overflow: hidden; /* 태블릿 및 화면에서 페이지 강제 스크롤 없이 한눈에 들어오도록 방지 */
         }
 
         /* 입체 골드 아케이드 컨테이너 */
@@ -66,7 +67,7 @@
             animation: path-flow 3s linear infinite;
         }
 
-        /* 3x5 체스판 격자 스타일 - 맵 높이 최적화 */
+        /* 3x5 체스판 격자 스타일 - 설명글을 지워 확보된 공간만큼 맵 크기 확대 및 고정 고도화 */
         .pokemon-board {
             background-color: #ffffff;
             border: 6px solid #1e293b;
@@ -74,10 +75,11 @@
             aspect-ratio: 5 / 3; /* 3행 5열 표준 정배율 유지 */
             position: relative;
             touch-action: none !important; /* 맵 내부 드로잉 시 페이지 밀림 영구 방지 */
-            height: calc(100vh - 250px);
-            max-height: 48vh;
+            height: calc(100vh - 210px);
+            max-height: 53vh;
             max-width: 100%;
             width: auto;
+            margin: 0 auto;
         }
 
         /* 셀 테두리 입체 렌더링 */
@@ -127,10 +129,11 @@
         #flowCardsContainer {
             touch-action: pan-x !important;
             -webkit-overflow-scrolling: touch !important;
+            overflow-y: hidden !important; /* 세로 스크롤 바를 완전히 숨겨 카드가 절대 잘리지 않도록 보호 */
         }
     </style>
 </head>
-<body class="min-h-screen w-screen overflow-y-auto flex flex-col justify-start items-center p-2 sm:p-4">
+<body class="min-h-screen w-screen overflow-hidden flex flex-col justify-center items-center p-2 sm:p-4">
 
     <!-- 경고용 커스텀 토스트 알림창 (alert 대체) -->
     <div id="warningToast" class="fixed top-4 left-1/2 -translate-x-1/2 bg-rose-600 text-white font-jua text-sm md:text-base px-6 py-3 rounded-full shadow-2xl transition-all duration-300 transform -translate-y-24 opacity-0 z-[100] flex items-center gap-2 border-4 border-slate-900">
@@ -181,11 +184,6 @@
                 </button>
             </div>
         </header>
-
-        <!-- 설명 가이드 전광판 (Gold 에디션 활성화) -->
-        <div id="systemMessage" class="w-full bg-slate-800 text-slate-100 p-2.5 rounded-xl text-center font-jua text-xs sm:text-sm shadow-md border-2 border-slate-900 mb-1 transition-all duration-300">
-            로딩 중... 잠시만 기다려주세요!
-        </div>
 
         <!-- 메인 보드 콘텐츠 파트 -->
         <div class="w-full flex items-center justify-center overflow-hidden flex-shrink-0">
@@ -251,15 +249,15 @@
             </div>
         </div>
 
-        <!-- 하단: 미니 배지 알고리즘 흐름판 -->
-        <div class="bg-slate-100 border-4 border-slate-900 rounded-[18px] p-1.5 flex items-center gap-1.5 shadow-inner relative flex-shrink-0 h-[115px]">
+        <!-- 하단: 미니 배지 알고리즘 흐름판 (h-124px 확보 및 overflow-y 차단으로 잘림 철저히 방지) -->
+        <div class="bg-slate-100 border-4 border-slate-900 rounded-[18px] p-1.5 flex items-center gap-1.5 shadow-inner relative flex-shrink-0 h-[124px]">
             <button onclick="slideFlow('left')" class="w-8 h-8 rounded-lg border-2 border-slate-900 bg-white hover:bg-slate-50 flex items-center justify-center text-slate-800 transition active:scale-95 shadow-[1.5px_1.5px_0px_#1e293b] cursor-pointer z-10 flex-shrink-0">
                 <i class="fa-solid fa-chevron-left text-xs"></i>
             </button>
             
             <div class="flex-1 overflow-hidden h-full">
                 <!-- 하단 크기가 시원하게 대형화된 코딩 카드 컨테이너 -->
-                <div id="flowCardsContainer" class="flex items-center gap-2.5 py-0.5 px-0.5 overflow-x-auto scroll-smooth h-full"></div>
+                <div id="flowCardsContainer" class="flex items-center gap-2.5 py-0.5 px-0.5 overflow-x-auto scroll-smooth h-full overflow-y-hidden"></div>
             </div>
 
             <button onclick="slideFlow('right')" class="w-8 h-8 rounded-lg border-2 border-slate-900 bg-white hover:bg-slate-50 flex items-center justify-center text-slate-800 transition active:scale-95 shadow-[1.5px_1.5px_0px_#1e293b] cursor-pointer z-10 flex-shrink-0">

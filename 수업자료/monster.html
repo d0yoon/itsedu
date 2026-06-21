@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>포켓몬 코딩 아일랜드 (v1.3 Light)</title>
+    <title>포켓몬 코딩 아일랜드 (v1.4 Light)</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
@@ -79,15 +79,19 @@
             100% { transform: scale(1); opacity: 1; }
         }
 
-        .no-scrollbar::-webkit-scrollbar {
-            display: none;
+        /* [v1.4 패치] 태블릿에서 눈에 띄게 표시되는 얇고 세련된 실시간 가로 스크롤바 스타일 */
+        #flowCardsContainer::-webkit-scrollbar {
+            height: 6px;
+            display: block !important;
         }
-        .no-scrollbar {
-            -ms-overflow-style: none;
-            scrollbar-width: none;
+        #flowCardsContainer::-webkit-scrollbar-track {
+            background: #e2e8f0;
+            border-radius: 9999px;
         }
-
-        /* [v1.3 핵심 패치] 태블릿 물리 터치 동작 명시 및 iOS 탄력 가속 스크롤 강제 */
+        #flowCardsContainer::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 9999px;
+        }
         #flowCardsContainer {
             touch-action: pan-x !important;
             -webkit-overflow-scrolling: touch !important;
@@ -215,7 +219,7 @@
             
             <div class="flex-1 overflow-hidden h-full">
                 <!-- 하단 크기가 시원하게 대형화된 코딩 카드 컨테이너 -->
-                <div id="flowCardsContainer" class="flex items-center gap-2 py-0.5 px-0.5 overflow-x-auto no-scrollbar scroll-smooth h-full"></div>
+                <div id="flowCardsContainer" class="flex items-center gap-3.5 py-1 px-1 overflow-x-auto scroll-smooth h-full"></div>
             </div>
 
             <button onclick="slideFlow('right')" class="w-9 h-9 rounded-lg border-2 border-slate-900 bg-white hover:bg-slate-50 flex items-center justify-center text-slate-800 transition active:scale-95 shadow-[1.5px_1.5px_0px_#1e293b] cursor-pointer z-10 flex-shrink-0">
@@ -231,7 +235,7 @@
             <span class="text-7xl text-amber-500 animate-bounce block"><i class="fa-solid fa-trophy"></i></span>
             <h2 class="font-jua text-4xl text-slate-800 mt-4 mb-2">도착 대성공! 🎉</h2>
             <p id="successDesc" class="text-slate-600 font-bold mb-6">스스로 설계한 알고리즘 카드로 목적지에 무사히 골인했습니다!</p>
-            <p class="text-sm text-slate-400 font-bold mb-6">(v1.3 패치 완료)</p>
+            <p class="text-sm text-slate-400 font-bold mb-6">(v1.4 패치 완료)</p>
             <button onclick="closeSuccessModal()" class="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-jua text-2xl py-4 rounded-2xl transition transform active:scale-95 shadow-lg">
                 다시 시작하기 🚀
             </button>
@@ -817,7 +821,7 @@
             if (currentMode === 'road') {
                 cardDataList.push({ 
                     type: 'start', 
-                    icon: `<svg viewBox="0 0 100 100" class="w-10 h-10"><text y="75" x="12" font-size="70">🚀</text></svg>`, 
+                    icon: `<svg viewBox="0 0 100 100" class="w-16 h-16"><text y="80" x="10" font-size="80">🚀</text></svg>`, 
                     bg: 'bg-indigo-600 border-indigo-800 text-white', 
                     label: '시작',
                     stepIndex: 0 
@@ -829,7 +833,7 @@
                     
                     cardDataList.push({ 
                         type: 'move', 
-                        icon: `<svg viewBox="0 0 100 100" class="w-10 h-10"><circle cx="50" cy="50" r="42" fill="#e6f4ea" stroke="#10b981" stroke-width="8"/><path d="M 50 82 L 50 18" fill="none" stroke="#1e293b" stroke-width="12" stroke-linecap="square"/><polygon points="50,10 28,32 72,32" fill="#1e293b"/></svg>`, 
+                        icon: `<svg viewBox="0 0 100 100" class="w-16 h-16"><circle cx="50" cy="50" r="42" fill="#e6f4ea" stroke="#10b981" stroke-width="8"/><path d="M 50 82 L 50 18" fill="none" stroke="#1e293b" stroke-width="14" stroke-linecap="square"/><polygon points="50,10 28,32 72,32" fill="#1e293b"/></svg>`, 
                         bg: 'bg-emerald-500 border-emerald-700 text-white', 
                         label: '앞으로',
                         stepIndex: i * 2 - 1 
@@ -839,7 +843,7 @@
                         const charData = gridCharacters[key];
                         cardDataList.push({ 
                             type: 'character', 
-                            icon: `<img src="${charData.img}" class="w-10 h-10 object-contain drop-shadow transform scale-110" />`, 
+                            icon: `<img src="${charData.img}" class="w-16 h-16 object-contain drop-shadow transform scale-110" />`, 
                             bg: charData.isHazard ? 'bg-rose-600 border-rose-800 text-white animate-pulse' : 'bg-amber-400 border-amber-600 text-slate-900', 
                             label: charData.name,
                             stepIndex: i * 2 
@@ -850,7 +854,7 @@
                     if (cmd === 'left') {
                         cardDataList.push({ 
                             type: 'left', 
-                            icon: `<svg viewBox="0 0 100 100" class="w-10 h-10"><circle cx="50" cy="50" r="42" fill="#fecaca" stroke="#dc2626" stroke-width="9"/><path d="M 55 78 L 55 42 L 30 42" fill="none" stroke="#1e293b" stroke-width="12" stroke-linecap="square"/><polygon points="12,42 34,20 34,64" fill="#1e293b"/></svg>`, 
+                            icon: `<svg viewBox="0 0 100 100" class="w-16 h-16"><circle cx="50" cy="50" r="42" fill="#fecaca" stroke="#dc2626" stroke-width="9"/><path d="M 55 78 L 55 42 L 30 42" fill="none" stroke="#1e293b" stroke-width="14" stroke-linecap="square"/><polygon points="12,42 34,20 34,64" fill="#1e293b"/></svg>`, 
                             bg: 'bg-rose-500 border-rose-700 text-white', 
                             label: '왼쪽',
                             stepIndex: i * 2 
@@ -858,7 +862,7 @@
                     } else if (cmd === 'right') {
                         cardDataList.push({ 
                             type: 'right', 
-                            icon: `<svg viewBox="0 0 100 100" class="w-10 h-10"><circle cx="50" cy="50" r="42" fill="#dbeafe" stroke="#2563eb" stroke-width="9"/><path d="M 45 78 L 45 42 L 70 42" fill="none" stroke="#1e293b" stroke-width="12" stroke-linecap="square"/><polygon points="88,42 66,20 66,64" fill="#1e293b"/></svg>`, 
+                            icon: `<svg viewBox="0 0 100 100" class="w-16 h-16"><circle cx="50" cy="50" r="42" fill="#dbeafe" stroke="#2563eb" stroke-width="9"/><path d="M 45 78 L 45 42 L 70 42" fill="none" stroke="#1e293b" stroke-width="14" stroke-linecap="square"/><polygon points="88,42 66,20 66,64" fill="#1e293b"/></svg>`, 
                             bg: 'bg-sky-500 border-sky-700 text-white', 
                             label: '오른쪽',
                             stepIndex: i * 2 
@@ -868,7 +872,7 @@
             } else {
                 cardDataList.push({ 
                     type: 'start', 
-                    icon: `<svg viewBox="0 0 100 100" class="w-10 h-10"><text y="75" x="12" font-size="70">🚀</text></svg>`, 
+                    icon: `<svg viewBox="0 0 100 100" class="w-16 h-16"><text y="80" x="10" font-size="80">🚀</text></svg>`, 
                     bg: 'bg-indigo-600 border-indigo-800 text-white', 
                     label: '시작',
                     isInteractive: false,
@@ -881,15 +885,15 @@
                     let labelText = "";
                     
                     if (card === 'forward') {
-                        iconHtml = `<svg viewBox="0 0 100 100" class="w-10 h-10"><circle cx="50" cy="50" r="42" fill="#e6f4ea" stroke="#10b981" stroke-width="8"/><path d="M 50 82 L 50 18" fill="none" stroke="#1e293b" stroke-width="12" stroke-linecap="square"/><polygon points="50,10 28,32 72,32" fill="#1e293b"/></svg>`;
+                        iconHtml = `<svg viewBox="0 0 100 100" class="w-16 h-16"><circle cx="50" cy="50" r="42" fill="#e6f4ea" stroke="#10b981" stroke-width="8"/><path d="M 50 82 L 50 18" fill="none" stroke="#1e293b" stroke-width="14" stroke-linecap="square"/><polygon points="50,10 28,32 72,32" fill="#1e293b"/></svg>`;
                         bgClass = 'bg-emerald-500 border-emerald-700 text-white';
                         labelText = '앞으로';
                     } else if (card === 'left') {
-                        iconHtml = `<svg viewBox="0 0 100 100" class="w-10 h-10"><circle cx="50" cy="50" r="42" fill="#fecaca" stroke="#dc2626" stroke-width="9"/><path d="M 55 78 L 55 42 L 30 42" fill="none" stroke="#1e293b" stroke-width="12" stroke-linecap="square"/><polygon points="12,42 34,20 34,64" fill="#1e293b"/></svg>`;
+                        iconHtml = `<svg viewBox="0 0 100 100" class="w-16 h-16"><circle cx="50" cy="50" r="42" fill="#fecaca" stroke="#dc2626" stroke-width="9"/><path d="M 55 78 L 55 42 L 30 42" fill="none" stroke="#1e293b" stroke-width="14" stroke-linecap="square"/><polygon points="12,42 34,20 34,64" fill="#1e293b"/></svg>`;
                         bgClass = 'bg-rose-500 border-rose-700 text-white';
                         labelText = '왼쪽';
                     } else if (card === 'right') {
-                        iconHtml = `<svg viewBox="0 0 100 100" class="w-10 h-10"><circle cx="50" cy="50" r="42" fill="#dbeafe" stroke="#2563eb" stroke-width="9"/><path d="M 45 78 L 45 42 L 70 42" fill="none" stroke="#1e293b" stroke-width="12" stroke-linecap="square"/><polygon points="88,42 66,20 66,64" fill="#1e293b"/></svg>`;
+                        iconHtml = `<svg viewBox="0 0 100 100" class="w-16 h-16"><circle cx="50" cy="50" r="42" fill="#dbeafe" stroke="#2563eb" stroke-width="9"/><path d="M 45 78 L 45 42 L 70 42" fill="none" stroke="#1e293b" stroke-width="14" stroke-linecap="square"/><polygon points="88,42 66,20 66,64" fill="#1e293b"/></svg>`;
                         bgClass = 'bg-sky-500 border-sky-700 text-white';
                         labelText = '오른쪽';
                     }
@@ -907,7 +911,7 @@
 
                 cardDataList.push({
                     type: 'placeholder',
-                    icon: `<svg viewBox="0 0 100 100" class="w-10 h-10 opacity-30"><circle cx="50" cy="50" r="42" fill="#e6f4ea" stroke="#10b981" stroke-width="8"/><path d="M 50 82 L 50 18" fill="none" stroke="#1e293b" stroke-width="12" stroke-linecap="square"/><polygon points="50,10 28,32 72,32" fill="#1e293b"/></svg>`,
+                    icon: `<svg viewBox="0 0 100 100" class="w-16 h-16 opacity-30"><circle cx="50" cy="50" r="42" fill="#e6f4ea" stroke="#10b981" stroke-width="8"/><path d="M 50 82 L 50 18" fill="none" stroke="#1e293b" stroke-width="14" stroke-linecap="square"/><polygon points="50,10 28,32 72,32" fill="#1e293b"/></svg>`,
                     bg: 'bg-emerald-500/40 border-emerald-700/30 text-white/50 border-dashed',
                     label: '앞으로',
                     isPlaceholder: true,
@@ -1375,7 +1379,7 @@
             runAnalysis(); 
         }
 
-        // [v1.3 핵심 터치 및 드래그 스크롤 바인딩 엔진]
+        // [v1.4 핵심 터치 및 드래그 스크롤 바인딩 엔진]
         const setupTabletDragScroll = () => {
             const slider = document.getElementById('flowCardsContainer');
             if (!slider) return;
@@ -1406,6 +1410,24 @@
                 const walk = (x - startX) * 1.5; // 스크롤 감도 배율 보정
                 slider.scrollLeft = scrollLeft - walk;
             });
+
+            // 태블릿 터치 스와이프 안정화 코드 추가
+            slider.addEventListener('touchstart', (e) => {
+                isDown = true;
+                startX = e.touches[0].pageX - slider.offsetLeft;
+                scrollLeft = slider.scrollLeft;
+            }, { passive: true });
+
+            slider.addEventListener('touchend', () => {
+                isDown = false;
+            }, { passive: true });
+
+            slider.addEventListener('touchmove', (e) => {
+                if (!isDown) return;
+                const x = e.touches[0].pageX - slider.offsetLeft;
+                const walk = (x - startX) * 1.5;
+                slider.scrollLeft = scrollLeft - walk;
+            }, { passive: true });
         };
 
         window.onload = function() {

@@ -30,7 +30,7 @@
             user-select: none;
             -webkit-user-select: none;
             -webkit-overflow-scrolling: touch;
-            overflow: hidden; /* 태블릿 및 화면에서 페이지 강제 스크롤 없이 한눈에 들어오도록 방지 */
+            overflow-y: auto; /* 스크롤이 원활하게 작동하도록 복원 */
         }
 
         /* 입체 골드 아케이드 컨테이너 */
@@ -133,7 +133,7 @@
         }
     </style>
 </head>
-<body class="min-h-screen w-screen overflow-hidden flex flex-col justify-center items-center p-2 sm:p-4">
+<body class="min-h-screen w-screen overflow-y-auto flex flex-col justify-start items-center p-2 sm:p-4 py-6 sm:py-8">
 
     <!-- 경고용 커스텀 토스트 알림창 (alert 대체) -->
     <div id="warningToast" class="fixed top-4 left-1/2 -translate-x-1/2 bg-rose-600 text-white font-jua text-sm md:text-base px-6 py-3 rounded-full shadow-2xl transition-all duration-300 transform -translate-y-24 opacity-0 z-[100] flex items-center gap-2 border-4 border-slate-900">
@@ -232,8 +232,9 @@
                     <!-- 3D 글래스 질감 포켓볼 로봇 주체 -->
                     <div id="robot" class="absolute z-50 pointer-events-none transition-all duration-500" style="left: 10%; top: 16.67%; transform: translate(-50%, -50%) !important;">
                         <svg viewBox="0 0 100 100" class="w-full h-full drop-shadow-lg overflow-visible">
-                            <path d="M 80 35 L 180 0 L 180 100 L 80 65 Z" fill="url(#headlight-beam)" opacity="0.65"/>
                             <g id="robot-chassis">
+                                <!-- 헤드라이트 빔을 섀시 안으로 집어넣어 회전 각도가 완벽하게 동기화되도록 수정 -->
+                                <path d="M 80 35 L 180 0 L 180 100 L 80 65 Z" fill="url(#headlight-beam)" opacity="0.65"/>
                                 <circle cx="50" cy="50" r="44" fill="#1e293b" stroke="#0f172a" stroke-width="4" />
                                 <path d="M 10 50 A 40 40 0 0 1 90 50 Z" fill="#ef4444" />
                                 <path d="M 10 50 A 40 40 0 0 0 90 50 Z" fill="#ffffff" />

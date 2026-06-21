@@ -30,7 +30,7 @@
             user-select: none;
             -webkit-user-select: none;
             -webkit-overflow-scrolling: touch;
-            overflow-y: auto; /* 스크롤이 원활하게 작동하도록 복원 */
+            overflow-y: auto; /* 스크롤 활성화 */
         }
 
         /* 입체 골드 아케이드 컨테이너 */
@@ -67,7 +67,7 @@
             animation: path-flow 3s linear infinite;
         }
 
-        /* 3x5 체스판 격자 스타일 - 설명글을 지워 확보된 공간만큼 맵 크기 확대 및 고정 고도화 */
+        /* 3x5 체스판 격자 스타일 - 카드를 위로 올리고 맵 크기를 60vh까지 대폭 확대 */
         .pokemon-board {
             background-color: #ffffff;
             border: 6px solid #1e293b;
@@ -75,8 +75,8 @@
             aspect-ratio: 5 / 3; /* 3행 5열 표준 정배율 유지 */
             position: relative;
             touch-action: none !important; /* 맵 내부 드로잉 시 페이지 밀림 영구 방지 */
-            height: calc(100vh - 210px);
-            max-height: 53vh;
+            height: calc(100vh - 180px);
+            max-height: 60vh; /* 맵을 더 크게 고정 */
             max-width: 100%;
             width: auto;
             margin: 0 auto;
@@ -185,7 +185,23 @@
             </div>
         </header>
 
-        <!-- 메인 보드 콘텐츠 파트 -->
+        <!-- 중단: 미니 배지 알고리즘 흐름판 (상단으로 위치 변경, 카드 텍스트가 시원하게 보이도록 높이 유지) -->
+        <div class="bg-slate-100 border-4 border-slate-900 rounded-[18px] p-1.5 flex items-center gap-1.5 shadow-inner relative flex-shrink-0 h-[124px]">
+            <button onclick="slideFlow('left')" class="w-8 h-8 rounded-lg border-2 border-slate-900 bg-white hover:bg-slate-50 flex items-center justify-center text-slate-800 transition active:scale-95 shadow-[1.5px_1.5px_0px_#1e293b] cursor-pointer z-10 flex-shrink-0">
+                <i class="fa-solid fa-chevron-left text-xs"></i>
+            </button>
+            
+            <div class="flex-1 overflow-hidden h-full">
+                <!-- 하단 크기가 시원하게 대형화된 코딩 카드 컨테이너 -->
+                <div id="flowCardsContainer" class="flex items-center gap-2.5 py-0.5 px-0.5 overflow-x-auto scroll-smooth h-full overflow-y-hidden"></div>
+            </div>
+
+            <button onclick="slideFlow('right')" class="w-8 h-8 rounded-lg border-2 border-slate-900 bg-white hover:bg-slate-50 flex items-center justify-center text-slate-800 transition active:scale-95 shadow-[1.5px_1.5px_0px_#1e293b] cursor-pointer z-10 flex-shrink-0">
+                <i class="fa-solid fa-chevron-right text-xs"></i>
+            </button>
+        </div>
+
+        <!-- 하단: 메인 보드 콘텐츠 파트 (아래로 위치 변경 및 확대) -->
         <div class="w-full flex items-center justify-center overflow-hidden flex-shrink-0">
             <div class="w-full max-w-[440px] sm:max-w-[540px] md:max-w-[640px] lg:max-w-[720px] overflow-visible" id="mapWrapper">
                 <!-- 3X5 격자 체스 바둑판 -->
@@ -233,7 +249,7 @@
                     <div id="robot" class="absolute z-50 pointer-events-none transition-all duration-500" style="left: 10%; top: 16.67%; transform: translate(-50%, -50%) !important;">
                         <svg viewBox="0 0 100 100" class="w-full h-full drop-shadow-lg overflow-visible">
                             <g id="robot-chassis">
-                                <!-- 헤드라이트 빔을 섀시 안으로 집어넣어 회전 각도가 완벽하게 동기화되도록 수정 -->
+                                <!-- 헤드라이트 빔을 섀시 안으로 집어넣어 회전 각도가 완벽하게 동기화되도록 유지 -->
                                 <path d="M 80 35 L 180 0 L 180 100 L 80 65 Z" fill="url(#headlight-beam)" opacity="0.65"/>
                                 <circle cx="50" cy="50" r="44" fill="#1e293b" stroke="#0f172a" stroke-width="4" />
                                 <path d="M 10 50 A 40 40 0 0 1 90 50 Z" fill="#ef4444" />
@@ -248,22 +264,6 @@
 
                 </div>
             </div>
-        </div>
-
-        <!-- 하단: 미니 배지 알고리즘 흐름판 (h-124px 확보 및 overflow-y 차단으로 잘림 철저히 방지) -->
-        <div class="bg-slate-100 border-4 border-slate-900 rounded-[18px] p-1.5 flex items-center gap-1.5 shadow-inner relative flex-shrink-0 h-[124px]">
-            <button onclick="slideFlow('left')" class="w-8 h-8 rounded-lg border-2 border-slate-900 bg-white hover:bg-slate-50 flex items-center justify-center text-slate-800 transition active:scale-95 shadow-[1.5px_1.5px_0px_#1e293b] cursor-pointer z-10 flex-shrink-0">
-                <i class="fa-solid fa-chevron-left text-xs"></i>
-            </button>
-            
-            <div class="flex-1 overflow-hidden h-full">
-                <!-- 하단 크기가 시원하게 대형화된 코딩 카드 컨테이너 -->
-                <div id="flowCardsContainer" class="flex items-center gap-2.5 py-0.5 px-0.5 overflow-x-auto scroll-smooth h-full overflow-y-hidden"></div>
-            </div>
-
-            <button onclick="slideFlow('right')" class="w-8 h-8 rounded-lg border-2 border-slate-900 bg-white hover:bg-slate-50 flex items-center justify-center text-slate-800 transition active:scale-95 shadow-[1.5px_1.5px_0px_#1e293b] cursor-pointer z-10 flex-shrink-0">
-                <i class="fa-solid fa-chevron-right text-xs"></i>
-            </button>
         </div>
 
     </div>
@@ -464,24 +464,17 @@
             playTone(mode === 'road' ? 660 : 880, 'sine', 0.15);
 
             const toggleBtn = document.getElementById('btn-mode-toggle');
-            const sysMsg = document.getElementById('systemMessage');
 
             if (mode === 'road') {
                 if (toggleBtn) {
                     toggleBtn.innerHTML = '<i class="fa-solid fa-route text-slate-900"></i><span>길 선택</span>';
                     toggleBtn.className = "px-3 py-1.5 rounded-xl border-4 border-slate-900 bg-emerald-400 hover:bg-emerald-500 text-slate-900 font-bold text-xs md:text-sm transition-all duration-150 shadow-[2px_2px_0px_#1e293b] active:translate-y-[2px] active:shadow-none cursor-pointer flex items-center gap-1";
                 }
-                if (sysMsg) {
-                    sysMsg.innerHTML = `<i class="fa-solid fa-map-marked-alt text-amber-400 mr-1.5"></i> <strong>길 선택 모드</strong>: 격자 사이의 <span class="text-emerald-400 font-extrabold">회색 점선</span>을 눌러 다리를 놓고, 거쳐 가는 교차로를 클릭해 회전 방향을 정하세요!`;
-                }
                 runAnalysis();
             } else {
                 if (toggleBtn) {
                     toggleBtn.innerHTML = '<i class="fa-solid fa-layer-group text-slate-900"></i><span>카드 선택</span>';
                     toggleBtn.className = "px-3 py-1.5 rounded-xl border-4 border-slate-900 bg-sky-400 hover:bg-sky-500 text-slate-900 font-bold text-xs md:text-sm transition-all duration-150 shadow-[2px_2px_0px_#1e293b] active:translate-y-[2px] active:shadow-none cursor-pointer flex items-center gap-1";
-                }
-                if (sysMsg) {
-                    sysMsg.innerHTML = `<i class="fa-solid fa-code text-amber-400 mr-1.5"></i> <strong>카드 선택 모드</strong>: 하단의 명령 카드를 조합하고 수정하여, 포켓볼 로봇을 골인 지점(🏆)까지 직접 자율 주행시켜 보세요!`;
                 }
                 
                 boardCommands = {};
@@ -979,7 +972,7 @@
                 
                 badgeDiv.innerHTML = `
                     <div class="w-12 h-12 flex items-center justify-center">${card.icon}</div>
-                    <span class="text-[13px] md:text-[14px] font-black font-jua tracking-tight leading-none truncate w-full text-center pb-1">${card.label}</span>
+                    <span class="text-[13.5px] md:text-[14.5px] font-black font-jua tracking-tight leading-none truncate w-full text-center pb-1 drop-shadow-sm">${card.label}</span>
                 `; 
 
                 if (currentMode === 'card') {

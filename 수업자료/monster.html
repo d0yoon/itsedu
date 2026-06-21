@@ -158,25 +158,25 @@
                         <circle cx="50" cy="50" r="8" fill="#ffffff" />
                     </svg>
                 </div>
-                <h1 class="font-jua text-2xl md:text-3xl text-slate-800 tracking-wide select-none">포켓몬 코딩 아일랜드 <span class="text-amber-500 text-lg md:text-xl">Gold 🏆</span></h1>
+                <h1 class="font-jua text-2xl md:text-3xl text-slate-800 tracking-wide select-none">포켓몬 코딩 아일랜드 <span class="text-amber-500 text-lg md:text-xl">잇츠에듀 🏆</span></h1>
             </div>
 
             <!-- 제어 및 모드 토글 통합 라인 -->
             <div class="flex items-center gap-1.5 font-jua">
-                <!-- 1. 단일 변환 스위칭 토글 버튼 -->
-                <button id="btn-mode-toggle" onclick="toggleControlMode()" class="px-3 py-1.5 rounded-xl border-4 border-slate-900 bg-emerald-400 hover:bg-emerald-500 text-slate-900 font-bold text-xs md:text-sm transition-all duration-150 shadow-[2px_2px_0px_#1e293b] active:translate-y-[2px] active:shadow-none cursor-pointer flex items-center gap-1">
+                <!-- 1. 단일 변환 스위칭 토글 버튼 (동일한 고정 크기 유지) -->
+                <button id="btn-mode-toggle" onclick="toggleControlMode()" class="w-[95px] sm:w-28 md:w-32 h-9 md:h-10 rounded-xl border-4 border-slate-900 bg-emerald-400 hover:bg-emerald-500 text-slate-900 font-bold text-xs sm:text-sm transition-all duration-150 shadow-[2px_2px_0px_#1e293b] active:translate-y-[2px] active:shadow-none cursor-pointer flex items-center justify-center gap-1">
                     <i class="fa-solid fa-route text-slate-900"></i>
                     <span>길 선택</span>
                 </button>
-                <!-- 2. 로봇 출발 -->
-                <button id="btn-start" onclick="startSimulation()" class="px-3.5 py-1.5 rounded-xl border-4 border-slate-900 bg-indigo-600 hover:bg-indigo-700 text-white text-xs md:text-sm transition-all duration-150 shadow-[2px_2px_0px_#1e293b] hover:translate-y-[0.5px] hover:shadow-[0.5px_0.5px_0px_#1e293b] active:translate-y-[2px] active:shadow-none cursor-pointer flex items-center gap-1">
+                <!-- 2. 포켓몬 출동 (동일한 고정 크기 유지) -->
+                <button id="btn-start" onclick="startSimulation()" class="w-[95px] sm:w-28 md:w-32 h-9 md:h-10 rounded-xl border-4 border-slate-900 bg-indigo-600 hover:bg-indigo-700 text-white text-xs sm:text-sm transition-all duration-150 shadow-[2px_2px_0px_#1e293b] hover:translate-y-[0.5px] hover:shadow-[0.5px_0.5px_0px_#1e293b] active:translate-y-[2px] active:shadow-none cursor-pointer flex items-center justify-center gap-1">
                     <span class="w-4 h-4 rounded-full bg-white flex items-center justify-center text-indigo-600 border border-slate-900 shadow-inner flex-shrink-0">
                         <i class="fa-solid fa-play text-[8px]"></i>
                     </span>
-                    <span class="tracking-wider">로봇 출발</span>
+                    <span class="tracking-wider">포켓몬 출동</span>
                 </button>
-                <!-- 3. 초기화 -->
-                <button id="btn-clear" onclick="clearEverything()" class="px-3.5 py-1.5 rounded-xl border-4 border-slate-900 bg-slate-700 hover:bg-slate-800 text-white text-xs md:text-sm transition-all duration-150 shadow-[2px_2px_0px_#1e293b] hover:translate-y-[0.5px] hover:shadow-[0.5px_0.5px_0px_#1e293b] active:translate-y-[2px] active:shadow-none cursor-pointer flex items-center gap-1">
+                <!-- 3. 초기화 (동일한 고정 크기 유지) -->
+                <button id="btn-clear" onclick="clearEverything()" class="w-[95px] sm:w-28 md:w-32 h-9 md:h-10 rounded-xl border-4 border-slate-900 bg-slate-700 hover:bg-slate-800 text-white text-xs sm:text-sm transition-all duration-150 shadow-[2px_2px_0px_#1e293b] hover:translate-y-[0.5px] hover:shadow-[0.5px_0.5px_0px_#1e293b] active:translate-y-[2px] active:shadow-none cursor-pointer flex items-center justify-center gap-1">
                     <span class="w-4 h-4 rounded-full bg-white flex items-center justify-center text-slate-700 border border-slate-900 shadow-inner flex-shrink-0">
                         <i class="fa-solid fa-rotate-left text-[8px]"></i>
                     </span>
@@ -246,7 +246,7 @@
                     <div id="anchorsLayer" class="absolute inset-0 z-40 pointer-events-auto"></div>
 
                     <!-- 3D 글래스 질감 포켓볼 로봇 주체 -->
-                    <div id="robot" class="absolute z-50 pointer-events-none transition-all duration-500" style="left: 10%; top: 16.67%; transform: translate(-50%, -50%) !important;">
+                    <div id="robot" class="absolute z-50 pointer-events-none transition-all duration-500" style="left: 10%; top: 83.33%; transform: translate(-50%, -50%) !important;">
                         <svg viewBox="0 0 100 100" class="w-full h-full drop-shadow-lg overflow-visible">
                             <g id="robot-chassis">
                                 <!-- 헤드라이트 빔을 섀시 안으로 집어넣어 회전 각도가 완벽하게 동기화되도록 유지 -->
@@ -366,15 +366,17 @@
         const colPercents = [10, 30, 50, 70, 90];   // HTML 절대 배치 백분율
         const rowPercents = [16.67, 50, 83.33];
 
+        // 1. 출발점(2,0) 및 피카츄(0,0), 이브이(2,4) 및 도착점(0,4) 위치 교환
+        // 2. 푸린의 색상을 로켓단과 완전 다르게 보라색(fuchsia) 계열로 변경
         const gridCharacters = {
             "0,2": { name: "꼬부기", img: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/7.png", bg: "#e0f2fe", border: "#38bdf8" },
-            "0,4": { name: "이브이", img: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/133.png", bg: "#fef3c7", border: "#fbbf24" },
-            "2,0": { name: "피카츄", img: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/25.png", bg: "#fef9c3", border: "#facc15" },
-            "2,2": { name: "푸린", img: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/39.png", bg: "#fce7f3", border: "#f472b6" },
+            "2,4": { name: "이브이", img: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/133.png", bg: "#fef3c7", border: "#fbbf24" },
+            "0,0": { name: "피카츄", img: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/25.png", bg: "#fef9c3", border: "#facc15" },
+            "2,2": { name: "푸린", img: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/39.png", bg: "#fae8ff", border: "#d946ef" },
             "1,3": { name: "로켓단", img: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/52.png", bg: "#fff1f2", border: "#f87171", isHazard: true }
         };
 
-        let startRow = 0; 
+        let startRow = 2; // (0,0)에서 (2,0)으로 변경
         let startCol = 0; 
         
         let boardCommands = {};   // 회전 명령 (`r,c` -> 'left' / 'right')
@@ -468,13 +470,13 @@
             if (mode === 'road') {
                 if (toggleBtn) {
                     toggleBtn.innerHTML = '<i class="fa-solid fa-route text-slate-900"></i><span>길 선택</span>';
-                    toggleBtn.className = "px-3 py-1.5 rounded-xl border-4 border-slate-900 bg-emerald-400 hover:bg-emerald-500 text-slate-900 font-bold text-xs md:text-sm transition-all duration-150 shadow-[2px_2px_0px_#1e293b] active:translate-y-[2px] active:shadow-none cursor-pointer flex items-center gap-1";
+                    toggleBtn.className = "w-[95px] sm:w-28 md:w-32 h-9 md:h-10 rounded-xl border-4 border-slate-900 bg-emerald-400 hover:bg-emerald-500 text-slate-900 font-bold text-xs sm:text-sm transition-all duration-150 shadow-[2px_2px_0px_#1e293b] active:translate-y-[2px] active:shadow-none cursor-pointer flex items-center justify-center gap-1";
                 }
                 runAnalysis();
             } else {
                 if (toggleBtn) {
                     toggleBtn.innerHTML = '<i class="fa-solid fa-layer-group text-slate-900"></i><span>카드 선택</span>';
-                    toggleBtn.className = "px-3 py-1.5 rounded-xl border-4 border-slate-900 bg-sky-400 hover:bg-sky-500 text-slate-900 font-bold text-xs md:text-sm transition-all duration-150 shadow-[2px_2px_0px_#1e293b] active:translate-y-[2px] active:shadow-none cursor-pointer flex items-center gap-1";
+                    toggleBtn.className = "w-[95px] sm:w-28 md:w-32 h-9 md:h-10 rounded-xl border-4 border-slate-900 bg-sky-400 hover:bg-sky-500 text-slate-900 font-bold text-xs sm:text-sm transition-all duration-150 shadow-[2px_2px_0px_#1e293b] active:translate-y-[2px] active:shadow-none cursor-pointer flex items-center justify-center gap-1";
                 }
                 
                 boardCommands = {};
@@ -525,8 +527,8 @@
             const container = document.getElementById('charLayer');
             container.innerHTML = '';
 
-            const startX = getCoordPercent(0, 'x');
-            const startY = getCoordPercent(0, 'y');
+            const startX = getCoordPercent(startCol, 'x'); // (2,0)
+            const startY = getCoordPercent(startRow, 'y');
             const startWrapper = document.createElement('div');
             startWrapper.className = "absolute flex flex-col items-center justify-center z-10 animate-[pop_0.3s_ease-out] char-card-container";
             startWrapper.style.left = `${startX}%`;
@@ -592,19 +594,19 @@
                 container.appendChild(wrapper);
             });
 
+            // 목적지: (0,4)로 변경
             const destX = getCoordPercent(4, 'x');
-            const destY = getCoordPercent(2, 'y');
+            const destY = getCoordPercent(0, 'y'); 
             
             const destWrapper = document.createElement('div');
             destWrapper.className = "absolute flex flex-col items-center justify-center z-10 animate-[pop_0.3s_ease-out] char-card-container";
             destWrapper.style.left = `${destX}%`;
             destWrapper.style.top = `${destY}%`;
 
+            // 도착점 트로피 크기 다른 포켓몬 크기 정도로 대폭 확대
             destWrapper.innerHTML = `
                 <div class="relative w-full aspect-square flex items-center justify-center bg-amber-100 rounded-full border-4 border-amber-400 shadow-lg overflow-visible">
-                    <svg viewBox="0 0 100 100" class="w-8 h-12 animate-[bounce_2s_infinite]">
-                        <text y="75" x="12" font-size="70">🏆</text>
-                    </svg>
+                    <span class="text-3xl sm:text-4xl md:text-5xl animate-[bounce_2s_infinite] select-none">🏆</span>
                 </div>
                 <div class="text-[11px] sm:text-[12px] md:text-sm font-black font-jua text-slate-900 bg-amber-300 border-2 border-slate-900 px-2 py-0.2 rounded-full mt-1 shadow-md whitespace-nowrap">도착 🏁</div>
             `;
@@ -622,13 +624,13 @@
         }
 
         function runAnalysis() {
-            let currR = 0;
-            let currC = 0;
+            let currR = startRow; // 2
+            let currC = startCol; // 0
             
-            let hasDown = activeBridges["border-h,0,0"] === true;
-            let hasRight = activeBridges["border-v,0,0"] === true;
+            let hasUp = activeBridges["border-h,1,0"] === true;
+            let hasRight = activeBridges["border-v,2,0"] === true;
             let currDir = "Right";
-            if (hasDown && !hasRight) currDir = "Down";
+            if (hasUp && !hasRight) currDir = "Up";
 
             let path = [{ r: currR, c: currC, dir: currDir }];
             let visited = new Set();
@@ -702,7 +704,7 @@
                 entryDirs[nodeKey] = currDir;
                 path.push({ r: currR, c: currC, dir: currDir });
                 
-                if (currR === 2 && currC === 4) {
+                if (currR === 0 && currC === 4) { // 도착점 위치 (0,4)로 판정 변경
                     break;
                 }
             }
@@ -831,9 +833,9 @@
             robot.style.left = `${x}%`;
             robot.style.top = `${y}%`;
             
-            let hasDown = activeBridges["border-h,0,0"] === true;
-            let startDir = hasDown ? "Down" : "Right";
-            currentAngle = startDir === "Down" ? 90 : 0; 
+            let hasUp = activeBridges["border-h,1,0"] === true; // 출발선이 (2,0)이므로 위(row 1)에 다리가 있는지 체크
+            let startDir = hasUp ? "Up" : "Right";
+            currentAngle = startDir === "Up" ? -90 : 0; 
             
             const chassis = document.getElementById('robot-chassis');
             if (chassis) {
@@ -848,12 +850,13 @@
             btnStart.disabled = isSimulating;
             btnClear.disabled = isSimulating;
             
+            // 상단 세 버튼 크기 및 포켓몬 출동 레이블 적용 일체화
             if (isSimulating) {
-                btnStart.className = "px-3.5 py-1.5 rounded-xl border-4 border-slate-300 bg-slate-100 text-slate-400 opacity-50 cursor-not-allowed flex items-center gap-1 text-xs md:text-sm";
-                btnClear.className = "px-3.5 py-1.5 rounded-xl border-4 border-slate-300 bg-slate-100 text-slate-400 opacity-50 cursor-not-allowed flex items-center gap-1 text-xs md:text-sm";
+                btnStart.className = "w-[95px] sm:w-28 md:w-32 h-9 md:h-10 rounded-xl border-4 border-slate-300 bg-slate-100 text-slate-400 opacity-50 cursor-not-allowed flex items-center justify-center gap-1 text-xs sm:text-sm";
+                btnClear.className = "w-[95px] sm:w-28 md:w-32 h-9 md:h-10 rounded-xl border-4 border-slate-300 bg-slate-100 text-slate-400 opacity-50 cursor-not-allowed flex items-center justify-center gap-1 text-xs sm:text-sm";
             } else {
-                btnStart.className = "px-3.5 py-1.5 rounded-xl border-4 border-slate-900 bg-indigo-600 hover:bg-indigo-700 text-white text-xs md:text-sm transition-all duration-150 shadow-[2px_2px_0px_#1e293b] hover:translate-y-[0.5px] hover:shadow-[0.5px_0.5px_0px_#1e293b] active:translate-y-[2px] active:shadow-none cursor-pointer flex items-center gap-1";
-                btnClear.className = "px-3.5 py-1.5 rounded-xl border-4 border-slate-900 bg-slate-700 hover:bg-slate-800 text-white text-xs md:text-sm transition-all duration-150 shadow-[2px_2px_0px_#1e293b] hover:translate-y-[0.5px] hover:shadow-[0.5px_0.5px_0px_#1e293b] active:translate-y-[2px] active:shadow-none cursor-pointer flex items-center gap-1";
+                btnStart.className = "w-[95px] sm:w-28 md:w-32 h-9 md:h-10 rounded-xl border-4 border-slate-900 bg-indigo-600 hover:bg-indigo-700 text-white text-xs sm:text-sm transition-all duration-150 shadow-[2px_2px_0px_#1e293b] hover:translate-y-[0.5px] hover:shadow-[0.5px_0.5px_0px_#1e293b] active:translate-y-[2px] active:shadow-none cursor-pointer flex items-center justify-center gap-1";
+                btnClear.className = "w-[95px] sm:w-28 md:w-32 h-9 md:h-10 rounded-xl border-4 border-slate-900 bg-slate-700 hover:bg-slate-800 text-white text-xs sm:text-sm transition-all duration-150 shadow-[2px_2px_0px_#1e293b] hover:translate-y-[0.5px] hover:shadow-[0.5px_0.5px_0px_#1e293b] active:translate-y-[2px] active:shadow-none cursor-pointer flex items-center justify-center gap-1";
             }
         }
 
@@ -1043,8 +1046,8 @@
             // 3x5 전체 교차로 터치 영역 앵커 구축
             for (let r = 0; r < 3; r++) {
                 for (let c = 0; c < 5; c++) {
-                    if (r === 0 && c === 0) continue; 
-                    if (r === 2 && c === 4) continue; 
+                    if (r === startRow && c === startCol) continue; // 출발점 제외
+                    if (r === 0 && c === 4) continue; // 도착점 제외
                     
                     const x = getCoordPercent(c, 'x'); 
                     const y = getCoordPercent(r, 'y'); 
@@ -1181,9 +1184,9 @@
             await sleep(800); 
             let currR = startRow, currC = startCol;
             
-            let hasDown = activeBridges["border-h,0,0"] === true;
-            let currentDir = hasDown ? "Down" : "Right"; 
-            currentAngle = hasDown ? 90 : 0;
+            let hasUp = activeBridges["border-h,1,0"] === true;
+            let currentDir = hasUp ? "Up" : "Right"; 
+            currentAngle = hasUp ? -90 : 0;
 
             let steps = 0;
             const pathNodes = traceResults.path;
@@ -1225,7 +1228,7 @@
                     }
                 }
 
-                if (currR === 2 && currC === 4) {
+                if (currR === 0 && currC === 4) { // 도착점 위치 (0,4)로 판정 변경
                     playSuccessSound();
                     
                     let collectedCount = 0;
@@ -1275,8 +1278,8 @@
             updateButtonStates();
             
             const robot = document.getElementById('robot');
-            let currR = 0;
-            let currC = 0;
+            let currR = startRow;
+            let currC = startCol;
             let currentDir = "Right";
             currentAngle = 0;
 
@@ -1341,8 +1344,8 @@
                         }
                     }
 
-                    // 도착 성공 감지 레이어
-                    if (currR === 2 && currC === 4) {
+                    // 도착 성공 감지 레이어 (0,4)
+                    if (currR === 0 && currC === 4) {
                         reachedSuccess = true;
                         break;
                     }
@@ -1429,7 +1432,7 @@
             activeBridges = {}; 
             defeatedHazards = {}; 
             manualCards = ['forward']; 
-            startRow = 0; 
+            startRow = 2; 
             startCol = 0;
             playTone(440, 'sine', 0.2); 
             runAnalysis();

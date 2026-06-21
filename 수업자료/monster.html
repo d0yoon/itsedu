@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>포켓몬 코딩 아일랜드 (v1.9 Light)</title>
+    <title>포켓몬 코딩 아일랜드 (v2.0 Gold Edition)</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
@@ -32,7 +32,7 @@
             -webkit-overflow-scrolling: touch;
         }
 
-        /* 입체 아케이드 컨테이너 */
+        /* 입체 골드 아케이드 컨테이너 */
         .arcade-container {
             border: 6px solid #1e293b;
             box-shadow: 8px 8px 0px #1e293b;
@@ -66,7 +66,7 @@
             animation: path-flow 3s linear infinite;
         }
 
-        /* 3x5 체스판 격자 스타일 - v1.9에서 가용 화면 대비 맵 높이를 대폭 확장 */
+        /* 3x5 체스판 격자 스타일 - 맵 높이 최적화 */
         .pokemon-board {
             background-color: #ffffff;
             border: 6px solid #1e293b;
@@ -74,8 +74,8 @@
             aspect-ratio: 5 / 3; /* 3행 5열 표준 정배율 유지 */
             position: relative;
             touch-action: none !important; /* 맵 내부 드로잉 시 페이지 밀림 영구 방지 */
-            height: calc(100vh - 240px); /* 더 많은 높이를 지도에 할당 */
-            max-height: 48vh; /* 기존 42vh에서 48vh로 지도 높이 비율 크게 확장 */
+            height: calc(100vh - 250px);
+            max-height: 48vh;
             max-width: 100%;
             width: auto;
         }
@@ -132,14 +132,20 @@
 </head>
 <body class="min-h-screen w-screen overflow-y-auto flex flex-col justify-start items-center p-2 sm:p-4">
 
-    <!-- 메인 컨테이너 태블릿 밀착형 h-auto 전향으로 한 화면 안착 최적화 -->
+    <!-- 경고용 커스텀 토스트 알림창 (alert 대체) -->
+    <div id="warningToast" class="fixed top-4 left-1/2 -translate-x-1/2 bg-rose-600 text-white font-jua text-sm md:text-base px-6 py-3 rounded-full shadow-2xl transition-all duration-300 transform -translate-y-24 opacity-0 z-[100] flex items-center gap-2 border-4 border-slate-900">
+        <i class="fa-solid fa-triangle-exclamation animate-bounce"></i>
+        <span id="toastText">경계를 벗어날 수 없습니다!</span>
+    </div>
+
+    <!-- 메인 컨테이너 -->
     <div class="w-full max-w-4xl h-auto bg-white rounded-[24px] p-2.5 sm:p-4 arcade-container flex flex-col justify-between gap-3 relative animate-[pop_0.3s_ease-out] my-auto">
         
-        <!-- 상단 헤더: 제목 옆 롤링 토글 & 출발/초기화 버튼 집적화 -->
-        <header class="flex flex-row justify-between items-center border-b-4 border-dashed border-slate-200 pb-2 flex-shrink-0">
+        <!-- 상단 헤더: 제목 및 모드 토글 & 제어 버튼 -->
+        <header class="flex flex-col sm:flex-row justify-between items-center border-b-4 border-dashed border-slate-200 pb-2 flex-shrink-0 gap-2">
             <div class="flex items-center gap-2">
                 <!-- 포켓볼 모양 장식 회전 아이콘 -->
-                <div class="w-7 h-7 flex-shrink-0 animate-spin" style="animation-duration: 6s;">
+                <div class="w-8 h-8 flex-shrink-0 animate-spin" style="animation-duration: 6s;">
                     <svg viewBox="0 0 100 100" class="w-full h-full">
                         <circle cx="50" cy="50" r="46" fill="#1e293b" />
                         <path d="M 12 50 A 38 38 0 0 1 88 50 Z" fill="#ef4444" />
@@ -149,8 +155,7 @@
                         <circle cx="50" cy="50" r="8" fill="#ffffff" />
                     </svg>
                 </div>
-                <!-- v1.9 패치: 제목 폰트 크기 대폭 확대 (text-lg md:text-xl에서 text-2xl md:text-3xl로 확장) -->
-                <h1 class="font-jua text-2xl md:text-3xl text-slate-800 tracking-wide select-none">포켓몬 코딩 아일랜드</h1>
+                <h1 class="font-jua text-2xl md:text-3xl text-slate-800 tracking-wide select-none">포켓몬 코딩 아일랜드 <span class="text-amber-500 text-lg md:text-xl">Gold 🏆</span></h1>
             </div>
 
             <!-- 제어 및 모드 토글 통합 라인 -->
@@ -177,12 +182,13 @@
             </div>
         </header>
 
-        <!-- 설명 가이드 전광판 (오버헤드 방지용 내부 격리) -->
-        <div id="systemMessage" class="hidden"></div>
+        <!-- 설명 가이드 전광판 (Gold 에디션 활성화) -->
+        <div id="systemMessage" class="w-full bg-slate-800 text-slate-100 p-2.5 rounded-xl text-center font-jua text-xs sm:text-sm shadow-md border-2 border-slate-900 mb-1 transition-all duration-300">
+            로딩 중... 잠시만 기다려주세요!
+        </div>
 
-        <!-- 메인 보드 콘텐츠 파트: 반응형 레이아웃 구성 -->
+        <!-- 메인 보드 콘텐츠 파트 -->
         <div class="w-full flex items-center justify-center overflow-hidden flex-shrink-0">
-            <!-- v1.9 패치: 가로 최대 한도 크기 확대 (440px/540px/640px/720px)로 맵을 크게 표시 -->
             <div class="w-full max-w-[440px] sm:max-w-[540px] md:max-w-[640px] lg:max-w-[720px] overflow-visible" id="mapWrapper">
                 <!-- 3X5 격자 체스 바둑판 -->
                 <div class="pokemon-board rounded-[20px]" id="mapViewport">
@@ -245,7 +251,7 @@
             </div>
         </div>
 
-        <!-- 하단: 미니 배지 알고리즘 흐름판 (v1.9 패치: 높이를 슬림하게 제어하여 한 화면 최적화 유지) -->
+        <!-- 하단: 미니 배지 알고리즘 흐름판 -->
         <div class="bg-slate-100 border-4 border-slate-900 rounded-[18px] p-1.5 flex items-center gap-1.5 shadow-inner relative flex-shrink-0 h-[115px]">
             <button onclick="slideFlow('left')" class="w-8 h-8 rounded-lg border-2 border-slate-900 bg-white hover:bg-slate-50 flex items-center justify-center text-slate-800 transition active:scale-95 shadow-[1.5px_1.5px_0px_#1e293b] cursor-pointer z-10 flex-shrink-0">
                 <i class="fa-solid fa-chevron-left text-xs"></i>
@@ -269,14 +275,14 @@
             <span class="text-7xl text-amber-500 animate-bounce block"><i class="fa-solid fa-trophy"></i></span>
             <h2 class="font-jua text-4xl text-slate-800 mt-4 mb-2">도착 대성공! 🎉</h2>
             <p id="successDesc" class="text-slate-600 font-bold mb-6">스스로 설계한 알고리즘 카드로 목적지에 무사히 골인했습니다!</p>
-            <p class="text-sm text-slate-400 font-bold mb-6">(v1.9 패치 완료)</p>
+            <p class="text-sm text-slate-400 font-bold mb-6">(v2.0 Gold 패치 완료)</p>
             <button onclick="closeSuccessModal()" class="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-jua text-2xl py-4 rounded-2xl transition transform active:scale-95 shadow-lg">
                 다시 시작하기 🚀
             </button>
         </div>
     </div>
 
-    <!-- 로딩 지연 및 자바스크립트 호출 예외 완전 차단용 통합 스크립트 -->
+    <!-- 자바스크립트 완전 제어부 -->
     <script>
         // --- [1. 사운드 및 오디오 전송 계층] ---
         let audioCtx = null;
@@ -338,8 +344,21 @@
 
         const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-        function showWarning(msg) {
+        // 커스텀 알림 토스트 함수
+        function showWarningToast(msg) {
             playCrashSound();
+            const toast = document.getElementById('warningToast');
+            const toastText = document.getElementById('toastText');
+            if (toast && toastText) {
+                toastText.innerText = msg;
+                toast.classList.remove('-translate-y-24', 'opacity-0');
+                toast.classList.add('translate-y-0', 'opacity-100');
+                
+                setTimeout(() => {
+                    toast.classList.remove('translate-y-0', 'opacity-100');
+                    toast.classList.add('-translate-y-24', 'opacity-0');
+                }, 2800);
+            }
         }
 
         // --- [2. 게임 보드 상태 및 데이터 계층] ---
@@ -446,24 +465,31 @@
             playTone(mode === 'road' ? 660 : 880, 'sine', 0.15);
 
             const toggleBtn = document.getElementById('btn-mode-toggle');
+            const sysMsg = document.getElementById('systemMessage');
 
             if (mode === 'road') {
                 if (toggleBtn) {
                     toggleBtn.innerHTML = '<i class="fa-solid fa-route text-slate-900"></i><span>길 선택</span>';
-                    toggleBtn.className = "px-5 py-2.5 rounded-xl border-4 border-slate-900 bg-emerald-400 hover:bg-emerald-500 text-slate-900 font-bold text-base md:text-lg transition-all duration-150 shadow-[2px_2px_0px_#1e293b] active:translate-y-[2px] active:shadow-none cursor-pointer flex items-center gap-1.5";
+                    toggleBtn.className = "px-3 py-1.5 rounded-xl border-4 border-slate-900 bg-emerald-400 hover:bg-emerald-500 text-slate-900 font-bold text-xs md:text-sm transition-all duration-150 shadow-[2px_2px_0px_#1e293b] active:translate-y-[2px] active:shadow-none cursor-pointer flex items-center gap-1";
+                }
+                if (sysMsg) {
+                    sysMsg.innerHTML = `<i class="fa-solid fa-map-marked-alt text-amber-400 mr-1.5"></i> <strong>길 선택 모드</strong>: 격자 사이의 <span class="text-emerald-400 font-extrabold">회색 점선</span>을 눌러 다리를 놓고, 거쳐 가는 교차로를 클릭해 회전 방향을 정하세요!`;
                 }
                 runAnalysis();
             } else {
                 if (toggleBtn) {
                     toggleBtn.innerHTML = '<i class="fa-solid fa-layer-group text-slate-900"></i><span>카드 선택</span>';
-                    toggleBtn.className = "px-5 py-2.5 rounded-xl border-4 border-slate-900 bg-sky-400 hover:bg-sky-500 text-slate-900 font-bold text-base md:text-lg transition-all duration-150 shadow-[2px_2px_0px_#1e293b] active:translate-y-[2px] active:shadow-none cursor-pointer flex items-center gap-1.5";
+                    toggleBtn.className = "px-3 py-1.5 rounded-xl border-4 border-slate-900 bg-sky-400 hover:bg-sky-500 text-slate-900 font-bold text-xs md:text-sm transition-all duration-150 shadow-[2px_2px_0px_#1e293b] active:translate-y-[2px] active:shadow-none cursor-pointer flex items-center gap-1";
+                }
+                if (sysMsg) {
+                    sysMsg.innerHTML = `<i class="fa-solid fa-code text-amber-400 mr-1.5"></i> <strong>카드 선택 모드</strong>: 하단의 명령 카드를 조합하고 수정하여, 포켓볼 로봇을 골인 지점(🏆)까지 직접 자율 주행시켜 보세요!`;
                 }
                 
                 boardCommands = {};
                 activeBridges = {};
                 defeatedHazards = {};
                 
-                // 최초 진입 시 시작 카드 + 활성 카드(앞으로)로 배열 초기 세팅
+                // 최초 진입 시 기본 앞으로 카드 구성
                 manualCards = ['forward'];
                 
                 document.getElementById('activePathLayer').innerHTML = '';
@@ -476,7 +502,6 @@
             }
         }
 
-        // [인터랙션 세그먼트] 카드 개별 처리 함수들
         function cycleCardValue(idx) {
             if (isSimulating) return;
             const values = ['forward', 'left', 'right'];
@@ -832,11 +857,11 @@
             btnClear.disabled = isSimulating;
             
             if (isSimulating) {
-                btnStart.className = "px-5 py-2.5 rounded-xl border-4 border-slate-300 bg-slate-100 text-slate-400 opacity-50 cursor-not-allowed flex items-center gap-1.5 text-sm md:text-base";
-                btnClear.className = "px-5 py-2.5 rounded-xl border-4 border-slate-300 bg-slate-100 text-slate-400 opacity-50 cursor-not-allowed flex items-center gap-1.5 text-sm md:text-base";
+                btnStart.className = "px-3.5 py-1.5 rounded-xl border-4 border-slate-300 bg-slate-100 text-slate-400 opacity-50 cursor-not-allowed flex items-center gap-1 text-xs md:text-sm";
+                btnClear.className = "px-3.5 py-1.5 rounded-xl border-4 border-slate-300 bg-slate-100 text-slate-400 opacity-50 cursor-not-allowed flex items-center gap-1 text-xs md:text-sm";
             } else {
-                btnStart.className = "px-5 py-2.5 rounded-xl border-4 border-slate-900 bg-indigo-600 hover:bg-indigo-700 text-white text-base md:text-lg transition-all duration-150 shadow-[3px_3px_0px_#1e293b] hover:translate-y-[1px] hover:shadow-[1px_1px_0px_#1e293b] active:translate-y-[3px] active:shadow-none cursor-pointer flex items-center gap-1.5";
-                btnClear.className = "px-5 py-2.5 rounded-xl border-4 border-slate-900 bg-slate-700 hover:bg-slate-800 text-white text-base md:text-lg transition-all duration-150 shadow-[3px_3px_0px_#1e293b] hover:translate-y-[1px] hover:shadow-[1px_1px_0px_#1e293b] active:translate-y-[3px] active:shadow-none cursor-pointer flex items-center gap-1.5";
+                btnStart.className = "px-3.5 py-1.5 rounded-xl border-4 border-slate-900 bg-indigo-600 hover:bg-indigo-700 text-white text-xs md:text-sm transition-all duration-150 shadow-[2px_2px_0px_#1e293b] hover:translate-y-[0.5px] hover:shadow-[0.5px_0.5px_0px_#1e293b] active:translate-y-[2px] active:shadow-none cursor-pointer flex items-center gap-1";
+                btnClear.className = "px-3.5 py-1.5 rounded-xl border-4 border-slate-900 bg-slate-700 hover:bg-slate-800 text-white text-xs md:text-sm transition-all duration-150 shadow-[2px_2px_0px_#1e293b] hover:translate-y-[0.5px] hover:shadow-[0.5px_0.5px_0px_#1e293b] active:translate-y-[2px] active:shadow-none cursor-pointer flex items-center gap-1";
             }
         }
 
@@ -941,7 +966,7 @@
                     type: 'placeholder',
                     icon: `<svg viewBox="0 0 100 100" class="w-12 h-12 opacity-30"><circle cx="50" cy="50" r="42" fill="#e6f4ea" stroke="#10b981" stroke-width="8"/><path d="M 50 82 L 50 18" fill="none" stroke="#1e293b" stroke-width="14" stroke-linecap="square"/><polygon points="50,10 28,32 72,32" fill="#1e293b"/></svg>`,
                     bg: 'bg-emerald-500/40 border-emerald-700/30 text-white/50 border-dashed',
-                    label: '앞으로',
+                    label: '추가하기',
                     isPlaceholder: true,
                     stepIndex: manualCards.length + 1
                 });
@@ -1005,6 +1030,7 @@
             renderCompactAlgorithmBadges(activeSimIndex);
         }
 
+        // 스크롤 슬라이더 이동 제어
         function slideFlow(direction) {
             const container = document.getElementById('flowCardsContainer');
             if (!container) return;
@@ -1022,7 +1048,7 @@
             
             if (isSimulating || currentMode === 'card') return;
 
-            // 자바스크립트 오타 교정 완료된 3x5 정식 루프
+            // 3x5 전체 교차로 터치 영역 앵커 구축
             for (let r = 0; r < 3; r++) {
                 for (let c = 0; c < 5; c++) {
                     if (r === 0 && c === 0) continue; 
@@ -1137,10 +1163,6 @@
             runAnalysis();
         }
 
-        function updateAnalysisMessage() {
-            // systemMessage 엘리먼트 가딩
-        }
-
         function startSimulation() {
             if (isSimulating) return;
             
@@ -1152,7 +1174,10 @@
         }
 
         async function startRoadSimulation() {
-            if (traceResults.path.length < 2 || Object.keys(traceResults.warnings).length > 0) return;
+            if (traceResults.path.length < 2 || Object.keys(traceResults.warnings).length > 0) {
+                showWarningToast("다리가 끊겼거나 회로에 오류가 있습니다! 경로를 점검하세요.");
+                return;
+            }
 
             isSimulating = true; 
             document.getElementById('anchorsLayer').style.pointerEvents = 'none'; 
@@ -1280,6 +1305,8 @@
             renderManualCardsWithHighlight(0);
             await sleep(1000);
 
+            let reachedSuccess = false;
+
             for (let i = 0; i < manualCards.length; i++) {
                 if (!isSimulating) break;
 
@@ -1291,7 +1318,7 @@
                     let targetC = currC + directions[currentDir].c;
 
                     if (targetR < 0 || targetR >= 3 || targetC < 0 || targetC >= 5) {
-                        playCrashSound();
+                        showWarningToast("경계를 이탈했습니다! 탈선 사고 발생! 💥");
                         isSimulating = false;
                         break;
                     }
@@ -1321,6 +1348,12 @@
                             playTone(987.77, 'sine', 0.15, 0.15);
                         }
                     }
+
+                    // 도착 성공 감지 레이어
+                    if (currR === 2 && currC === 4) {
+                        reachedSuccess = true;
+                        break;
+                    }
                 } else if (cardCmd === 'left') {
                     currentDir = turnLeftMap[currentDir];
                     currentAngle -= 90;
@@ -1336,6 +1369,21 @@
                     }
                     await sleep(800);
                 }
+            }
+
+            if (reachedSuccess) {
+                playSuccessSound();
+                let collectedCount = 0;
+                currentSimPath.forEach(n => {
+                    const k = `${n.r},${n.c}`;
+                    if (gridCharacters[k] && !gridCharacters[k].isHazard) collectedCount++;
+                });
+
+                const descEl = document.getElementById('successDesc');
+                descEl.innerText = `스스로 조립한 알고리즘 카드로 목적지에 무사히 도달했습니다!\n(구출된 소중한 포켓몬: 총 ${collectedCount}마리 구출 성공!)`;
+                document.getElementById('successModal').classList.remove('hidden');
+            } else if (isSimulating) {
+                showWarningToast("목적지(🏆)에 아직 도달하지 못했습니다! 명령 리스트를 보강해 주세요.");
             }
 
             isSimulating = false;
@@ -1408,6 +1456,7 @@
             runAnalysis(); 
         }
 
+        // 태블릿 및 모바일 기기를 위한 가로 드래그 제스처 바인딩
         const setupTabletDragScroll = () => {
             const slider = document.getElementById('flowCardsContainer');
             if (!slider) return;

@@ -1,0 +1,1427 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>포켓몬 코딩 아일랜드 - 칸 따라 움직이기</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        jua: ['Jua', 'sans-serif'],
+                        noto: ['Noto Sans KR', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            background-color: #f1f5f9;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+
+        /* 입체 아케이드 컨테이너 */
+        .arcade-container {
+            border: 6px solid #1e293b;
+            box-shadow: 10px 10px 0px #1e293b;
+        }
+
+        /* 포켓볼 로봇 이동 하드웨어 가속 트랜지션 */
+        #robot {
+            transition: left 0.8s cubic-bezier(0.25, 1, 0.5, 1), top 0.8s cubic-bezier(0.25, 1, 0.5, 1);
+            will-change: left, top;
+        }
+
+        #robot-chassis {
+            transition: transform 0.6s cubic-bezier(0.25, 1, 0.5, 1);
+            transform-origin: 50% 50%;
+        }
+
+        /* 반짝임 애니메이션 */
+        @keyframes twinkle {
+            0%, 100% { transform: scale(0.95) rotate(0deg); opacity: 0.8; }
+            50% { transform: scale(1.1) rotate(180deg); opacity: 1; }
+        }
+        .twinkle-star {
+            animation: twinkle 1.5s infinite ease-in-out;
+        }
+
+        /* 네온 가이드 라인 애니메이션 */
+        @keyframes path-flow {
+            0% { stroke-dashoffset: 100; }
+            100% { stroke-dashoffset: 0; }
+        }
+        .flowing-line {
+            stroke-dasharray: 12, 6;
+            animation: path-flow 3s linear infinite;
+        }
+
+        /* 3x5 체스판 격자 스타일 */
+        .pokemon-board {
+            background-color: #ffffff;
+            border: 6px solid #1e293b;
+            box-shadow: inset 0 0 30px rgba(30, 41, 59, 0.1), 0 10px 25px -5px rgba(0,0,0,0.1);
+            aspect-ratio: 5 / 3; /* 3행 5열 표준 정배율 유지 */
+            position: relative;
+        }
+
+        /* 셀 테두리 입체 렌더링 */
+        .board-cell {
+            box-sizing: border-box;
+            border: 2px solid rgba(30, 41, 59, 0.12);
+        }
+
+        @keyframes pop {
+            0% { transform: scale(0.85); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-center items-center p-2 md:p-4">
+
+    <!-- 태블릿 최적화 압축 컴팩트 패널 -->
+    <div class="w-full max-w-4xl bg-white rounded-[28px] p-3 md:p-5 arcade-container flex flex-col justify-between gap-3 relative animate-[pop_0.3s_ease-out]">
+        
+        <!-- 상단 헤더: 타이틀, 단일 모드 토글러 & 조작 버튼 수평 배치로 공간 극대화 -->
+        <div class="flex flex-col sm:flex-row justify-between items-center border-b-4 border-dashed border-slate-200 pb-2.5 gap-3">
+            <div class="flex items-center gap-3 w-full sm:w-auto">
+                <!-- 포켓볼 모양 장식 회전 아이콘 -->
+                <div class="w-9 h-9 flex-shrink-0 animate-spin" style="animation-duration: 4s;">
+                    <svg viewBox="0 0 100 100" class="w-full h-full">
+                        <circle cx="50" cy="50" r="46" fill="#1e293b" />
+                        <path d="M 12 50 A 38 38 0 0 1 88 50 Z" fill="#ef4444" />
+                        <path d="M 12 50 A 38 38 0 0 0 88 50 Z" fill="#ffffff" />
+                        <rect x="10" y="46" width="80" height="8" fill="#1e293b" />
+                        <circle cx="50" cy="50" r="14" fill="#1e293b" />
+                        <circle cx="50" cy="50" r="8" fill="#ffffff" />
+                    </svg>
+                </div>
+                <div class="w-full min-w-0">
+                    <h1 class="font-jua text-2xl md:text-3xl text-slate-800 tracking-wide truncate">포켓몬 코딩 아일랜드</h1>
+                </div>
+            </div>
+
+            <!-- 제어 버튼바 및 단일 토글형 모드 스위처 통합 배치 -->
+            <div class="flex items-center gap-2.5 font-jua w-full sm:w-auto justify-end flex-wrap sm:flex-nowrap">
+                <!-- 1. 단일 모드 토글 버튼 (길선택 <=> 카드선택 번갈아가며 레이블 표출) -->
+                <button id="btn-mode-toggle" onclick="toggleControlMode()" class="px-5 py-2.5 rounded-xl border-4 border-slate-900 bg-emerald-400 hover:bg-emerald-500 text-slate-900 font-bold text-base md:text-lg transition-all duration-150 shadow-[3px_3px_0px_#1e293b] active:translate-y-[2px] active:shadow-none cursor-pointer flex items-center gap-1.5">
+                    <i class="fa-solid fa-route text-slate-900"></i>
+                    <span>길 선택</span>
+                </button>
+                <!-- 2. 로봇 출발 -->
+                <button id="btn-start" onclick="startSimulation()" class="px-5 py-2.5 rounded-xl border-4 border-slate-900 bg-indigo-600 hover:bg-indigo-700 text-white text-base md:text-lg transition-all duration-150 shadow-[3px_3px_0px_#1e293b] hover:translate-y-[1px] hover:shadow-[1px_1px_0px_#1e293b] active:translate-y-[3px] active:shadow-none cursor-pointer flex items-center gap-1.5">
+                    <span class="w-6 h-6 rounded-full bg-white flex items-center justify-center text-indigo-600 border border-slate-900 shadow-inner flex-shrink-0">
+                        <i class="fa-solid fa-play text-[10px]"></i>
+                    </span>
+                    <span class="tracking-wider">로봇 출발</span>
+                </button>
+                <!-- 3. 전체 초기화 -->
+                <button id="btn-clear" onclick="clearEverything()" class="px-5 py-2.5 rounded-xl border-4 border-slate-900 bg-slate-700 hover:bg-slate-800 text-white text-base md:text-lg transition-all duration-150 shadow-[3px_3px_0px_#1e293b] hover:translate-y-[1px] hover:shadow-[1px_1px_0px_#1e293b] active:translate-y-[3px] active:shadow-none cursor-pointer flex items-center gap-1.5">
+                    <span class="w-6 h-6 rounded-full bg-white flex items-center justify-center text-slate-700 border border-slate-900 shadow-inner flex-shrink-0">
+                        <i class="fa-solid fa-rotate-left text-[10px]"></i>
+                    </span>
+                    <span class="tracking-wider">초기화</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- 설명 영역 생략 및 예외 방지용 마운트 가드 (높이 0 처리) -->
+        <div id="systemMessage" class="hidden"></div>
+
+        <!-- 메인 격자 지도 영역 -->
+        <div class="flex flex-col gap-4 items-stretch w-full">
+            
+            <!-- 3X5 격자 체스 바둑판 -->
+            <div class="w-full pokemon-board rounded-[24px] overflow-hidden" id="mapViewport">
+                
+                <!-- SVG 전역 그라디언트 정의 -->
+                <svg style="position: absolute; width: 0; height: 0; overflow: hidden;" aria-hidden="true">
+                    <defs>
+                        <!-- 로봇 라이트 빔 그라디언트 -->
+                        <linearGradient id="headlight-beam" x1="0%" y1="50%" x2="100%" y2="50%">
+                            <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.8"/>
+                            <stop offset="100%" stop-color="#38bdf8" stop-opacity="0"/>
+                        </linearGradient>
+                    </defs>
+                </svg>
+
+                <!-- 백그라운드 3x5 체스 그리드 구조망 -->
+                <div class="absolute inset-0 grid grid-rows-3 grid-cols-5 z-0">
+                    <!-- 행0 -->
+                    <div class="board-cell bg-[#fefefe] flex flex-col items-center justify-start p-1 relative border-r border-b border-slate-100"></div>
+                    <div class="board-cell bg-[#fafafa] relative border-r border-b border-slate-100"></div>
+                    <div id="cell-0-2" class="board-cell bg-[#fefefe] flex flex-col items-center justify-end pb-1 relative border-r border-b border-slate-100"></div>
+                    <div class="board-cell bg-[#fafafa] relative border-r border-b border-slate-100"></div>
+                    <div id="cell-0-4" class="board-cell bg-[#fefefe] flex flex-col items-center justify-end pb-1 relative border-b border-slate-100"></div>
+
+                    <!-- 행1 -->
+                    <div class="board-cell bg-[#fafafa] relative border-r border-b border-slate-100"></div>
+                    <div class="board-cell bg-[#fefefe] relative border-r border-b border-slate-100"></div>
+                    <div class="board-cell bg-[#fafafa] relative border-r border-b border-slate-100"></div>
+                    <div id="cell-1-3" class="board-cell bg-[#fff1f2] flex flex-col items-center justify-end pb-1 relative border-r border-b border-slate-100"></div>
+                    <div class="board-cell bg-[#fafafa] relative border-b border-slate-100"></div>
+
+                    <!-- 행2 -->
+                    <div id="cell-2-0" class="board-cell bg-[#fefefe] flex flex-col items-center justify-end pb-1 relative border-r border-slate-100"></div>
+                    <div class="board-cell bg-[#fafafa] relative border-r border-slate-100"></div>
+                    <div id="cell-2-2" class="board-cell bg-[#fefefe] flex flex-col items-center justify-end pb-1 relative border-r border-slate-100"></div>
+                    <div class="board-cell bg-[#fafafa] relative border-r border-slate-100"></div>
+                    <div class="board-cell bg-[#fefefe] flex flex-col items-center justify-start p-1 relative"></div>
+                </div>
+
+                <!-- 그래픽 효과 & 가이드 오버레이 레이어 리스트 -->
+                <div id="charLayer" class="absolute inset-0 pointer-events-none z-10"></div>
+                <!-- 오차 없는 정밀 매핑 전용 SVG 레이어 (viewBox 500x300 고정) -->
+                <svg id="activePathLayer" viewBox="0 0 500 300" preserveAspectRatio="none" class="absolute inset-0 z-5 pointer-events-none w-full h-full"></svg>
+                <div id="commandsLayer" class="absolute inset-0 z-30 pointer-events-none"></div>
+                <div id="anchorsLayer" class="absolute inset-0 z-40 pointer-events-auto"></div>
+
+                <!-- 3D 글래스 질감 포켓볼 로봇 주체 -->
+                <div id="robot" class="absolute z-50 pointer-events-none transition-all duration-500" style="left: calc(10% - 25px); top: calc(16.67% - 25px); width: 50px; height: 50px;">
+                    <svg viewBox="0 0 100 100" class="w-full h-full drop-shadow-lg overflow-visible">
+                        <!-- 전방 라이트 조사 효과 -->
+                        <path d="M 80 35 L 180 0 L 180 100 L 80 65 Z" fill="url(#headlight-beam)" opacity="0.65"/>
+                        <g id="robot-chassis">
+                            <!-- 포켓볼 기하학 렌더링 -->
+                            <circle cx="50" cy="50" r="44" fill="#1e293b" stroke="#0f172a" stroke-width="4" />
+                            <path d="M 10 50 A 40 40 0 0 1 90 50 Z" fill="#ef4444" />
+                            <path d="M 10 50 A 40 40 0 0 0 90 50 Z" fill="#ffffff" />
+                            <rect x="6" y="46" width="88" height="8" fill="#1e293b" />
+                            <circle cx="50" cy="50" r="16" fill="#1e293b" />
+                            <circle cx="50" cy="50" r="10" fill="#ffffff" />
+                            <circle cx="50" cy="50" r="5" fill="#38bdf8" class="animate-pulse" />
+                        </g>
+                    </svg>
+                </div>
+
+            </div>
+
+        </div>
+
+        <!-- 하단: 미니 배지 알고리즘 흐름판 -->
+        <div class="bg-slate-100 border-4 border-slate-900 rounded-[20px] p-2.5 flex items-center gap-2 shadow-inner relative">
+            <button onclick="slideFlow('left')" class="w-10 h-10 rounded-xl border-2 border-slate-900 bg-white hover:bg-slate-50 flex items-center justify-center text-slate-800 transition active:scale-95 shadow-[2px_2px_0px_#1e293b] cursor-pointer z-10 flex-shrink-0">
+                <i class="fa-solid fa-chevron-left text-sm"></i>
+            </button>
+            
+            <div class="flex-1 overflow-hidden">
+                <!-- 하단 크기가 시원하게 대형화된 코딩 카드 컨테이너 (최소 높이 150px 확보) -->
+                <div id="flowCardsContainer" class="flex items-center gap-3.5 py-1 px-1 overflow-x-auto no-scrollbar scroll-smooth min-h-[150px]"></div>
+            </div>
+
+            <button onclick="slideFlow('right')" class="w-10 h-10 rounded-xl border-2 border-slate-900 bg-white hover:bg-slate-50 flex items-center justify-center text-slate-800 transition active:scale-95 shadow-[2px_2px_0px_#1e293b] cursor-pointer z-10 flex-shrink-0">
+                <i class="fa-solid fa-chevron-right text-sm"></i>
+            </button>
+        </div>
+
+    </div>
+
+    <!-- 대성공 축하 오버레이 모달 창 (길 선택 모드에서만 호출) -->
+    <div id="successModal" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-[32px] border-8 border-emerald-400 p-8 max-w-md w-full text-center shadow-2xl relative overflow-hidden animate-[pop_0.3s_ease-out]">
+            <span class="text-7xl text-amber-500 animate-bounce block"><i class="fa-solid fa-trophy"></i></span>
+            <h2 class="font-jua text-4xl text-slate-800 mt-4 mb-2">도착 대성공! 🎉</h2>
+            <p id="successDesc" class="text-slate-600 font-bold mb-6">스스로 설계한 알고리즘 카드로 목적지에 무사히 골인했습니다!</p>
+            <button onclick="closeSuccessModal()" class="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-jua text-2xl py-4 rounded-2xl transition transform active:scale-95 shadow-lg">
+                다시 시작하기 🚀
+            </button>
+        </div>
+    </div>
+
+    <!-- 로딩 지연 및 자바스크립트 호출 예외 완전 차단용 통합 스크립트 -->
+    <script>
+        // --- [1. 사운드 및 오디오 전송 계층] ---
+        let audioCtx = null;
+        function getAudioContext() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            return audioCtx;
+        }
+
+        function playTone(freq, type, duration, gainStart = 0.1) {
+            try {
+                const ctx = getAudioContext();
+                if (ctx.state === 'suspended') ctx.resume();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                
+                osc.type = type;
+                osc.frequency.setValueAtTime(freq, ctx.currentTime);
+                gain.gain.setValueAtTime(gainStart, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + duration);
+                
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start();
+                osc.stop(ctx.currentTime + duration);
+            } catch (e) {
+                console.log("Audio Context 블로킹 대응");
+            }
+        }
+
+        function playPopSound() { playTone(880, 'sine', 0.1); }
+        function playSuccessSound() {
+            playTone(523.25, 'triangle', 0.15, 0.15); 
+            setTimeout(() => playTone(659.25, 'triangle', 0.15, 0.15), 100); 
+            setTimeout(() => playTone(783.99, 'triangle', 0.15, 0.15), 200); 
+            setTimeout(() => playTone(1046.50, 'triangle', 0.4, 0.2), 300); 
+        }
+        function playExplosionSound() {
+            playTone(180, 'sawtooth', 0.5, 0.2);
+            playTone(90, 'triangle', 0.6, 0.35);
+        }
+        function playCrashSound() {
+            playTone(330, 'sine', 0.2, 0.15);
+            setTimeout(() => playTone(220, 'sine', 0.3, 0.15), 150);
+        }
+
+        const unlockAudio = () => {
+            try {
+                const ctx = getAudioContext();
+                if (ctx && ctx.state === 'suspended') ctx.resume();
+            } catch (e) {}
+            window.removeEventListener('click', unlockAudio);
+            window.removeEventListener('touchstart', unlockAudio);
+        };
+        window.addEventListener('click', unlockAudio);
+        window.addEventListener('touchstart', unlockAudio);
+
+        const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+        function showWarning(msg) {
+            playCrashSound();
+        }
+
+        // --- [2. 게임 보드 상태 및 데이터 계층] ---
+        const colCoords = [50, 150, 250, 350, 450]; // 500px 너비 기준 중심점
+        const rowCoords = [50, 150, 250];          // 300px 높이 기준 중심점
+        const colPercents = [10, 30, 50, 70, 90];   // HTML 절대 배치 백분율
+        const rowPercents = [16.67, 50, 83.33];
+
+        const gridCharacters = {
+            "0,2": { name: "꼬부기", img: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/7.png", bg: "#e0f2fe", border: "#38bdf8" },
+            "0,4": { name: "이브이", img: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/133.png", bg: "#fef3c7", border: "#fbbf24" },
+            "2,0": { name: "피카츄", img: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/25.png", bg: "#fef9c3", border: "#facc15" },
+            "2,2": { name: "푸린", img: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/39.png", bg: "#fce7f3", border: "#f472b6" },
+            "1,3": { name: "로켓단", img: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/52.png", bg: "#fff1f2", border: "#f87171", isHazard: true }
+        };
+
+        let startRow = 0; 
+        let startCol = 0; 
+        
+        let boardCommands = {};   // 회전 명령 (`r,c` -> 'left' / 'right')
+        let activeBridges = {};   // 도로 연결 (`border-h/v,r,c` -> true)
+        let defeatedHazards = {}; // 주행 중 처치 완료된 로켓단 리스트
+        
+        let manualCards = [];     // 스택배치 카드리스트 (예: ['forward', 'right', 'forward'])
+        let currentMode = 'road'; // 'road' (길선택) <=> 'card' (카드선택)
+        
+        let isSimulating = false;
+        let currentAngle = 0; 
+
+        const directions = {
+            "Up": { r: -1, c: 0 },
+            "Right": { r: 0, c: 1 },
+            "Down": { r: 1, c: 0 },
+            "Left": { r: 0, c: -1 }
+        };
+
+        const turnRightMap = { "Up": "Right", "Right": "Down", "Down": "Left", "Left": "Up" };
+        const turnLeftMap = { "Up": "Left", "Left": "Down", "Down": "Right", "Right": "Up" };
+        const uTurnMap = { "Up": "Down", "Right": "Left", "Down": "Up", "Left": "Right" };
+
+        let traceResults = {
+            path: [],       
+            visited: new Set(),
+            entryDirs: {},  
+            warnings: {},   
+            activeBridges: new Set()
+        };
+
+        // --- [3. 격자 계산 및 드로잉 함수군] ---
+        function getCoordPercent(val, axis) {
+            if (axis === 'x') {
+                if (Number.isInteger(val)) {
+                    return colPercents[val];
+                }
+                const idx = Math.floor(val);
+                if (idx >= 0 && idx < 4) {
+                    return (colPercents[idx] + colPercents[idx+1]) / 2;
+                }
+                return 50;
+            } else {
+                if (Number.isInteger(val)) {
+                    return rowPercents[val];
+                }
+                const idx = Math.floor(val);
+                if (idx >= 0 && idx < 2) {
+                    return (rowPercents[idx] + rowPercents[idx+1]) / 2;
+                }
+                return 50;
+            }
+        }
+
+        function getCoordAbsolute(val, axis) {
+            if (axis === 'x') {
+                if (Number.isInteger(val)) {
+                    return colCoords[val];
+                }
+                const idx = Math.floor(val);
+                if (idx >= 0 && idx < 4) {
+                    return (colCoords[idx] + colCoords[idx+1]) / 2;
+                }
+                return 250;
+            } else {
+                if (Number.isInteger(val)) {
+                    return rowCoords[val];
+                }
+                const idx = Math.floor(val);
+                if (idx >= 0 && idx < 2) {
+                    return (rowCoords[idx] + rowCoords[idx+1]) / 2;
+                }
+                return 150;
+            }
+        }
+
+        // --- [4. 코딩 흐름 제어 및 핵심 뷰포트 연산] ---
+        // 단일 롤링 토글을 지원하기 위한 단순 트리거 함수 탑재
+        function toggleControlMode() {
+            if (isSimulating) return;
+            const nextMode = (currentMode === 'road') ? 'card' : 'road';
+            switchControlMode(nextMode);
+        }
+
+        function switchControlMode(mode) {
+            if (isSimulating) return;
+            currentMode = mode;
+            playTone(mode === 'road' ? 660 : 880, 'sine', 0.15);
+
+            const toggleBtn = document.getElementById('btn-mode-toggle');
+
+            if (mode === 'road') {
+                if (toggleBtn) {
+                    toggleBtn.innerHTML = '<i class="fa-solid fa-route text-slate-900"></i><span>길 선택</span>';
+                    toggleBtn.className = "px-5 py-2.5 rounded-xl border-4 border-slate-900 bg-emerald-400 hover:bg-emerald-500 text-slate-900 font-bold text-base md:text-lg transition-all duration-150 shadow-[3px_3px_0px_#1e293b] active:translate-y-[2px] active:shadow-none cursor-pointer flex items-center gap-1.5";
+                }
+                runAnalysis();
+            } else {
+                if (toggleBtn) {
+                    toggleBtn.innerHTML = '<i class="fa-solid fa-layer-group text-slate-900"></i><span>카드 선택</span>';
+                    toggleBtn.className = "px-5 py-2.5 rounded-xl border-4 border-slate-900 bg-sky-400 hover:bg-sky-500 text-slate-900 font-bold text-base md:text-lg transition-all duration-150 shadow-[3px_3px_0px_#1e293b] active:translate-y-[2px] active:shadow-none cursor-pointer flex items-center gap-1.5";
+                }
+                
+                boardCommands = {};
+                activeBridges = {};
+                defeatedHazards = {};
+                
+                // 최초 진입 시 시작 카드 + 활성 카드(앞으로)로 배열 초기 세팅
+                manualCards = ['forward'];
+                
+                document.getElementById('activePathLayer').innerHTML = '';
+                positionRobotAtStart();
+                renderFixedCharacters();
+                renderCommands();
+                renderClickAnchors();
+                updateButtonStates();
+                renderManualCardsWithHighlight();
+            }
+        }
+
+        // [핵심 인터랙티브 세그먼트] 카드 개별 처리 함수들
+        function cycleCardValue(idx) {
+            if (isSimulating) return;
+            const values = ['forward', 'left', 'right'];
+            const currentIdx = values.indexOf(manualCards[idx]);
+            const nextIdx = (currentIdx + 1) % values.length;
+            manualCards[idx] = values[nextIdx];
+            playPopSound();
+            renderManualCardsWithHighlight();
+        }
+
+        function removeCardAt(idx) {
+            if (isSimulating) return;
+            playPopSound();
+            manualCards.splice(idx, 1);
+            // 카드가 전부 지워진 경우에도 최소 1개는 있도록 자동 복구
+            if (manualCards.length === 0) {
+                manualCards = ['forward'];
+            }
+            renderManualCardsWithHighlight();
+        }
+
+        function addManualCardPlaceholder() {
+            if (isSimulating) return;
+            playPopSound();
+            // 흐릿한 카드를 클릭하면 새로운 앞으로 카드를 체인에 즉시 덧붙임
+            manualCards.push('forward');
+            renderManualCardsWithHighlight();
+        }
+
+        function renderFixedCharacters() {
+            const container = document.getElementById('charLayer');
+            container.innerHTML = '';
+
+            const startX = getCoordPercent(0, 'x');
+            const startY = getCoordPercent(0, 'y');
+            const startWrapper = document.createElement('div');
+            startWrapper.className = "absolute flex flex-col items-center justify-center z-10 animate-[pop_0.3s_ease-out]";
+            startWrapper.style.left = `calc(${startX}% - 50px)`;
+            startWrapper.style.top = `calc(${startY}% - 55px)`;
+            startWrapper.style.width = "100px";
+            startWrapper.style.height = "110px";
+            startWrapper.innerHTML = `
+                <div class="relative w-20 h-20 flex items-center justify-center bg-emerald-100 rounded-full border-4 border-emerald-400 shadow-md">
+                    <span class="text-4xl animate-pulse">🚩</span>
+                </div>
+                <div class="text-xs md:text-sm font-jua text-slate-800 bg-emerald-300 border-2 border-slate-900 px-3 py-0.5 rounded-full mt-1.5 shadow-sm font-bold">출발 🚀</div>
+            `;
+            container.appendChild(startWrapper);
+
+            Object.keys(gridCharacters).forEach(key => {
+                const parts = key.split(',').map(Number);
+                const charData = gridCharacters[key];
+                const x = getCoordPercent(parts[1], 'x');
+                const y = getCoordPercent(parts[0], 'y');
+
+                const wrapper = document.createElement('div');
+                wrapper.className = "absolute flex flex-col items-center justify-center transition-all duration-300 z-10";
+                
+                wrapper.style.left = `calc(${x}% - 50px)`;
+                wrapper.style.top = `calc(${y}% - 55px)`;
+                wrapper.style.width = "100px";
+                wrapper.style.height = "110px";
+
+                const inner = document.createElement('div');
+                inner.className = "w-20 h-20 rounded-full border-4 flex items-center justify-center relative shadow-md overflow-hidden animate-[pop_0.25s_ease-out] bg-gradient-to-br from-white to-slate-50";
+                inner.style.borderColor = charData.border;
+                inner.style.backgroundColor = charData.bg;
+
+                if (charData.isHazard) {
+                    if (defeatedHazards[key]) {
+                        inner.className += " opacity-40 grayscale border-slate-400";
+                        const warningTag = document.createElement('div');
+                        warningTag.className = "absolute top-1 bg-indigo-500 text-white font-jua text-[9px] px-2 py-0.5 rounded-full border border-white z-10";
+                        warningTag.innerText = "처치! 💥";
+                        inner.appendChild(warningTag);
+                    } else {
+                        inner.className += " animate-pulse ring-4 ring-red-400/30";
+                        const warningTag = document.createElement('div');
+                        warningTag.className = "absolute top-1 bg-red-500 text-white font-jua text-[9px] px-2 py-0.5 rounded-full border border-white z-10";
+                        warningTag.innerText = "조심!";
+                        inner.appendChild(warningTag);
+                    }
+                }
+
+                const img = document.createElement('img');
+                img.src = charData.img;
+                img.className = "w-16 h-16 object-contain transform hover:scale-110 transition duration-300 drop-shadow-md z-0";
+                img.onerror = () => {
+                    img.style.display = 'none';
+                    const fallback = document.createElement('div');
+                    fallback.className = "text-4xl";
+                    fallback.innerText = charData.isHazard ? "😈" : "🐾";
+                    inner.appendChild(fallback);
+                };
+                inner.appendChild(img);
+
+                const label = document.createElement('div');
+                label.className = "text-xs md:text-sm font-jua text-slate-800 bg-white border-2 border-slate-700 px-2 py-0.2 rounded-full mt-1.5 shadow-sm";
+                label.innerText = charData.name;
+
+                wrapper.appendChild(inner);
+                wrapper.appendChild(label);
+                container.appendChild(wrapper);
+            });
+
+            const destX = getCoordPercent(4, 'x');
+            const destY = getCoordPercent(2, 'y');
+            
+            const destWrapper = document.createElement('div');
+            destWrapper.className = "absolute flex flex-col items-center justify-center z-10 animate-[pop_0.3s_ease-out]";
+            destWrapper.style.left = `calc(${destX}% - 50px)`;
+            destWrapper.style.top = `calc(${destY}% - 55px)`;
+            destWrapper.style.width = "100px";
+            destWrapper.style.height = "110px";
+
+            destWrapper.innerHTML = `
+                <div class="relative w-20 h-20 flex items-center justify-center bg-amber-100 rounded-full border-4 border-amber-400 shadow-lg overflow-visible">
+                    <svg viewBox="0 0 100 100" class="w-14 h-14 animate-[bounce_2s_infinite]">
+                        <text y="75" x="12" font-size="70">🏆</text>
+                    </svg>
+                </div>
+                <div class="text-xs md:text-sm font-jua text-slate-800 bg-amber-300 border-2 border-slate-900 px-3 py-0.2 rounded-full mt-1.5 shadow-sm font-bold">도착 🏁</div>
+            `;
+            container.appendChild(destWrapper);
+        }
+
+        function initMap() {
+            renderFixedCharacters();
+            renderActivePath(); 
+            renderCommands();   
+            positionRobotAtStart();
+            renderClickAnchors();
+            updateButtonStates(); 
+            updateAnalysisMessage(); 
+            renderCompactAlgorithmBadges();
+        }
+
+        // 경로 알고리즘 실시간 분석 엔진 (0-indexed 체계 기반 설계)
+        function runAnalysis() {
+            let currR = 0;
+            let currC = 0;
+            
+            let hasDown = activeBridges["border-h,0,0"] === true;
+            let hasRight = activeBridges["border-v,0,0"] === true;
+            let currDir = "Right";
+            if (hasDown && !hasRight) currDir = "Down";
+
+            let path = [{ r: currR, c: currC, dir: currDir }];
+            let visited = new Set();
+            visited.add(`${currR},${currC}`);
+            
+            let entryDirs = {};
+            entryDirs[`${currR},${currC}`] = currDir;
+            
+            let warnings = {};
+            let traversedBridges = new Set();
+            
+            let steps = 0;
+            const maxSteps = 30;
+
+            while (steps < maxSteps) {
+                steps++;
+
+                let turnCmd = boardCommands[`${currR},${currC}`];
+                let nextDir = currDir;
+                if (turnCmd === 'left') {
+                    nextDir = turnLeftMap[currDir];
+                } else if (turnCmd === 'right') {
+                    nextDir = turnRightMap[currDir];
+                }
+
+                let targetR = currR + directions[nextDir].r;
+                let targetC = currC + directions[nextDir].c;
+
+                if (targetR < 0 || targetR >= 3 || targetC < 0 || targetC >= 5) {
+                    break;
+                }
+
+                let hasBridge = false;
+                let bridgeKey = "";
+
+                if (nextDir === "Right") {
+                    bridgeKey = `border-v,${currR},${currC}`;
+                } else if (nextDir === "Left") {
+                    bridgeKey = `border-v,${currR},${currC-1}`;
+                } else if (nextDir === "Down") {
+                    bridgeKey = `border-h,${currR},${currC}`;
+                } else if (nextDir === "Up") {
+                    bridgeKey = `border-h,${currR-1},${currC}`;
+                }
+
+                if (bridgeKey && activeBridges[bridgeKey] === true) {
+                    hasBridge = true;
+                }
+
+                if (!hasBridge) {
+                    if (turnCmd) {
+                        warnings[`${currR},${currC}`] = "invalid_turn_no_road";
+                    }
+                    break;
+                }
+
+                traversedBridges.add(bridgeKey);
+
+                currR = targetR;
+                currC = targetC;
+                currDir = nextDir;
+
+                let nodeKey = `${currR},${currC}`;
+
+                if (visited.has(nodeKey)) {
+                    warnings[nodeKey] = "loop";
+                    break;
+                }
+
+                visited.add(nodeKey);
+                entryDirs[nodeKey] = currDir;
+                path.push({ r: currR, c: currC, dir: currDir });
+                
+                if (currR === 2 && currC === 4) {
+                    break;
+                }
+            }
+
+            Object.keys(boardCommands).forEach(key => {
+                if (!visited.has(key)) {
+                    delete boardCommands[key];
+                }
+            });
+
+            traceResults = { path, visited, entryDirs, warnings, activeBridges: traversedBridges };
+            initMap();
+        }
+
+        function renderActivePath() {
+            const layer = document.getElementById('activePathLayer');
+            layer.innerHTML = '';
+            if (traceResults.path.length < 2) return;
+
+            let pathString = "";
+            traceResults.path.forEach((node, idx) => {
+                const x = getCoordAbsolute(node.c, 'x');
+                const y = getCoordAbsolute(node.r, 'y');
+                if (idx === 0) {
+                    pathString += `M ${x} ${y}`;
+                } else {
+                    pathString += ` L ${x} ${y}`;
+                }
+            });
+
+            const outerPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+            outerPath.setAttribute("d", pathString);
+            outerPath.setAttribute("fill", "none");
+            outerPath.setAttribute("stroke", "#10b981");
+            outerPath.setAttribute("stroke-width", "12");
+            outerPath.setAttribute("stroke-linecap", "round");
+            outerPath.setAttribute("stroke-linejoin", "round");
+            outerPath.setAttribute("opacity", "0.45");
+
+            const innerPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+            innerPath.setAttribute("d", pathString);
+            innerPath.setAttribute("fill", "none");
+            innerPath.setAttribute("stroke", "#ffffff");
+            innerPath.setAttribute("stroke-width", "4");
+            innerPath.setAttribute("stroke-linecap", "round");
+            innerPath.setAttribute("stroke-linejoin", "round");
+            innerPath.setAttribute("class", "flowing-line");
+
+            layer.appendChild(outerPath);
+            layer.appendChild(innerPath);
+        }
+
+        function getTurnSvg(type, entryDir) {
+            let baseAngle = 0;
+            if (entryDir === "Up") baseAngle = 0;
+            else if (entryDir === "Right") baseAngle = 90;
+            else if (entryDir === "Down") baseAngle = 180;
+            else if (entryDir === "Left") baseAngle = 270;
+
+            const isLeft = (type === 'left');
+            const borderCol = isLeft ? '#ef4444' : '#3b82f6';
+            const bgCol = isLeft ? '#fee2e2' : '#dbeafe';
+            const arrowCol = '#1e293b';
+
+            let arrowElements = "";
+            if (isLeft) {
+                arrowElements = `
+                    <circle cx="50" cy="70" r="5" fill="#1e293b" />
+                    <path d="M 50 70 L 50 46 L 36 46" fill="none" stroke="${arrowCol}" stroke-width="12" stroke-linecap="square"/>
+                    <polygon points="18,46 38,26 38,66" fill="${arrowCol}" />
+                `;
+            } else {
+                arrowElements = `
+                    <circle cx="50" cy="70" r="5" fill="#1e293b" />
+                    <path d="M 50 70 L 50 46 L 64 46" fill="none" stroke="${arrowCol}" stroke-width="12" stroke-linecap="square"/>
+                    <polygon points="82,46 62,26 62,66" fill="${arrowCol}" />
+                `;
+            }
+
+            return `
+                <svg viewBox="0 0 100 100" class="w-full h-full drop-shadow-md" style="transform: rotate(${baseAngle}deg); transform-origin: 50% 50%;">
+                    <circle cx="50" cy="50" r="40" fill="${bgCol}" stroke="${borderCol}" stroke-width="8"/>
+                    <circle cx="50" cy="50" r="35" fill="none" stroke="#ffffff" stroke-width="1.5" stroke-dasharray="3,3" opacity="0.6"/>
+                    ${arrowElements}
+                </svg>
+            `;
+        }
+
+        function renderCommands() {
+            const container = document.getElementById('commandsLayer');
+            container.innerHTML = '';
+            
+            Object.keys(boardCommands).forEach(key => {
+                const val = boardCommands[key];
+                if (!val) return;
+
+                const parts = key.split(',').map(Number);
+                const x = getCoordPercent(parts[1], 'x');
+                const y = getCoordPercent(parts[0], 'y');
+                let entryDir = traceResults.entryDirs[key] || "Right";
+
+                const div = document.createElement('div');
+                const isPassed = traceResults.visited.has(key);
+                
+                div.className = `absolute z-30 pointer-events-none transition-all duration-300 animate-[pop_0.2s_ease-out] ${isPassed ? '' : 'opacity-45'}`;
+                div.style.left = `calc(${x}% - 22px)`;
+                div.style.top = `calc(${y}% - 22px)`;
+                div.style.width = "44px";
+                div.style.height = "44px";
+                div.innerHTML = getTurnSvg(val, entryDir);
+
+                const warning = traceResults.warnings[key];
+                if (warning) {
+                    const badge = document.createElement('div');
+                    badge.className = "absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full border border-white flex items-center justify-center text-white text-[9px] font-bold shadow-md animate-bounce bg-rose-600";
+                    badge.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i>`;
+                    div.appendChild(badge);
+                }
+
+                container.appendChild(div);
+            });
+        }
+
+        function positionRobotAtStart() {
+            const robot = document.getElementById('robot');
+            const x = getCoordPercent(startCol, 'x'); 
+            const y = getCoordPercent(startRow, 'y'); 
+            robot.style.left = `calc(${x}% - 25px)`;
+            robot.style.top = `calc(${y}% - 25px)`;
+            
+            let hasDown = activeBridges["border-h,0,0"] === true;
+            let startDir = hasDown ? "Down" : "Right";
+            currentAngle = startDir === "Down" ? 90 : 0; 
+            
+            const chassis = document.getElementById('robot-chassis');
+            if (chassis) {
+                chassis.style.transform = `rotate(${currentAngle}deg)`;
+            }
+        }
+
+        function updateButtonStates() {
+            const btnStart = document.getElementById('btn-start');
+            const btnClear = document.getElementById('btn-clear');
+            
+            btnStart.disabled = isSimulating;
+            btnClear.disabled = isSimulating;
+            
+            if (isSimulating) {
+                btnStart.className = "px-5 py-2.5 rounded-xl border-4 border-slate-300 bg-slate-100 text-slate-400 opacity-50 cursor-not-allowed flex items-center gap-1.5";
+                btnClear.className = "px-5 py-2.5 rounded-xl border-4 border-slate-300 bg-slate-100 text-slate-400 opacity-50 cursor-not-allowed flex items-center gap-1.5";
+            } else {
+                btnStart.className = "px-5 py-2.5 rounded-xl border-4 border-slate-900 bg-indigo-600 hover:bg-indigo-700 text-white text-base md:text-lg transition-all duration-150 shadow-[3px_3px_0px_#1e293b] hover:translate-y-[1px] hover:shadow-[1px_1px_0px_#1e293b] active:translate-y-[3px] active:shadow-none cursor-pointer flex items-center gap-1.5";
+                btnClear.className = "px-5 py-2.5 rounded-xl border-4 border-slate-900 bg-slate-700 hover:bg-slate-800 text-white text-base md:text-lg transition-all duration-150 shadow-[3px_3px_0px_#1e293b] hover:translate-y-[1px] hover:shadow-[1px_1px_0px_#1e293b] active:translate-y-[3px] active:shadow-none cursor-pointer flex items-center gap-1.5";
+            }
+        }
+
+        // [알고리즘 가로 배지판 코딩 카드 극대화 & 인라인 직접 토글형 패치]
+        function renderCompactAlgorithmBadges(activeSimIndex = -1) {
+            const flowContainer = document.getElementById('flowCardsContainer');
+            if (!flowContainer) return; flowContainer.innerHTML = '';
+            
+            let cardDataList = [];
+            
+            if (currentMode === 'road') {
+                // [길 선택 모드] 시에는 한붓그리기 데이터에 따라 순차 표시
+                cardDataList.push({ 
+                    type: 'start', 
+                    icon: `<svg viewBox="0 0 100 100" class="w-16 h-16"><text y="80" x="10" font-size="80">🚀</text></svg>`, 
+                    bg: 'bg-indigo-600 border-indigo-800 text-white', 
+                    label: '시작',
+                    stepIndex: 0 
+                });
+                
+                let pathNodes = traceResults.path || [];
+                for (let i = 1; i < pathNodes.length; i++) {
+                    const key = `${pathNodes[i].r},${pathNodes[i].c}`;
+                    
+                    cardDataList.push({ 
+                        type: 'move', 
+                        icon: `<svg viewBox="0 0 100 100" class="w-16 h-16"><circle cx="50" cy="50" r="42" fill="#e6f4ea" stroke="#10b981" stroke-width="8"/><path d="M 50 82 L 50 18" fill="none" stroke="#1e293b" stroke-width="14" stroke-linecap="square"/><polygon points="50,10 28,32 72,32" fill="#1e293b"/></svg>`, 
+                        bg: 'bg-emerald-500 border-emerald-700 text-white', 
+                        label: '앞으로',
+                        stepIndex: i * 2 - 1 
+                    });
+                    
+                    if (gridCharacters[key]) {
+                        const charData = gridCharacters[key];
+                        cardDataList.push({ 
+                            type: 'character', 
+                            icon: `<img src="${charData.img}" class="w-16 h-16 object-contain drop-shadow transform scale-110" />`, 
+                            bg: charData.isHazard ? 'bg-rose-600 border-rose-800 text-white animate-pulse' : 'bg-amber-400 border-amber-600 text-slate-900', 
+                            label: charData.name,
+                            stepIndex: i * 2 
+                        });
+                    }
+                    
+                    const cmd = boardCommands[key];
+                    if (cmd === 'left') {
+                        cardDataList.push({ 
+                            type: 'left', 
+                            icon: `<svg viewBox="0 0 100 100" class="w-16 h-16"><circle cx="50" cy="50" r="42" fill="#fecaca" stroke="#dc2626" stroke-width="9"/><path d="M 55 78 L 55 42 L 30 42" fill="none" stroke="#1e293b" stroke-width="14" stroke-linecap="square"/><polygon points="12,42 34,20 34,64" fill="#1e293b"/></svg>`, 
+                            bg: 'bg-rose-500 border-rose-700 text-white', 
+                            label: '왼쪽',
+                            stepIndex: i * 2 
+                        });
+                    } else if (cmd === 'right') {
+                        cardDataList.push({ 
+                            type: 'right', 
+                            icon: `<svg viewBox="0 0 100 100" class="w-16 h-16"><circle cx="50" cy="50" r="42" fill="#dbeafe" stroke="#2563eb" stroke-width="9"/><path d="M 45 78 L 45 42 L 70 42" fill="none" stroke="#1e293b" stroke-width="14" stroke-linecap="square"/><polygon points="88,42 66,20 66,64" fill="#1e293b"/></svg>`, 
+                            bg: 'bg-sky-500 border-sky-700 text-white', 
+                            label: '오른쪽',
+                            stepIndex: i * 2 
+                        });
+                    }
+                }
+            } else {
+                // [카드 선택 모드] 직접 자율형 체인 렌더링
+                // 1) 시작 카드 (고정)
+                cardDataList.push({ 
+                    type: 'start', 
+                    icon: `<svg viewBox="0 0 100 100" class="w-16 h-16"><text y="80" x="10" font-size="80">🚀</text></svg>`, 
+                    bg: 'bg-indigo-600 border-indigo-800 text-white', 
+                    label: '시작',
+                    isInteractive: false,
+                    stepIndex: 0 
+                });
+
+                // 2) 자율 수동 카드 목록 (밝게 노출 & 누르면 [앞으로 -> 왼쪽 -> 오른쪽] 자동 순환)
+                manualCards.forEach((card, idx) => {
+                    let iconHtml = "";
+                    let bgClass = "";
+                    let labelText = "";
+                    
+                    if (card === 'forward') {
+                        iconHtml = `<svg viewBox="0 0 100 100" class="w-16 h-16"><circle cx="50" cy="50" r="42" fill="#e6f4ea" stroke="#10b981" stroke-width="8"/><path d="M 50 82 L 50 18" fill="none" stroke="#1e293b" stroke-width="14" stroke-linecap="square"/><polygon points="50,10 28,32 72,32" fill="#1e293b"/></svg>`;
+                        bgClass = 'bg-emerald-500 border-emerald-700 text-white';
+                        labelText = '앞으로';
+                    } else if (card === 'left') {
+                        iconHtml = `<svg viewBox="0 0 100 100" class="w-16 h-16"><circle cx="50" cy="50" r="42" fill="#fecaca" stroke="#dc2626" stroke-width="9"/><path d="M 55 78 L 55 42 L 30 42" fill="none" stroke="#1e293b" stroke-width="14" stroke-linecap="square"/><polygon points="12,42 34,20 34,64" fill="#1e293b"/></svg>`;
+                        bgClass = 'bg-rose-500 border-rose-700 text-white';
+                        labelText = '왼쪽';
+                    } else if (card === 'right') {
+                        iconHtml = `<svg viewBox="0 0 100 100" class="w-16 h-16"><circle cx="50" cy="50" r="42" fill="#dbeafe" stroke="#2563eb" stroke-width="9"/><path d="M 45 78 L 45 42 L 70 42" fill="none" stroke="#1e293b" stroke-width="14" stroke-linecap="square"/><polygon points="88,42 66,20 66,64" fill="#1e293b"/></svg>`;
+                        bgClass = 'bg-sky-500 border-sky-700 text-white';
+                        labelText = '오른쪽';
+                    }
+
+                    cardDataList.push({
+                        type: card,
+                        icon: iconHtml,
+                        bg: bgClass,
+                        label: labelText,
+                        isInteractive: true,
+                        realIndex: idx,
+                        stepIndex: idx + 1
+                    });
+                });
+
+                // 3) 다음에 올 수 있는 흐릿한 선택지용 카드 (앞으로 고정 배치, 클릭하면 체인 길이 추가)
+                cardDataList.push({
+                    type: 'placeholder',
+                    icon: `<svg viewBox="0 0 100 100" class="w-16 h-16 opacity-30"><circle cx="50" cy="50" r="42" fill="#e6f4ea" stroke="#10b981" stroke-width="8"/><path d="M 50 82 L 50 18" fill="none" stroke="#1e293b" stroke-width="14" stroke-linecap="square"/><polygon points="50,10 28,32 72,32" fill="#1e293b"/></svg>`,
+                    bg: 'bg-emerald-500/40 border-emerald-700/30 text-white/50 border-dashed',
+                    label: '앞으로',
+                    isPlaceholder: true,
+                    stepIndex: manualCards.length + 1
+                });
+            }
+
+            cardDataList.forEach((card) => {
+                const badgeDiv = document.createElement('div');
+                let isHighlight = (activeSimIndex !== -1 && card.stepIndex === activeSimIndex);
+                
+                // 가독성을 극대화하기 위해 한글 지시어 텍스트 크기를 대폭 늘렸습니다 (text-[20px] ~ text-[22px])
+                badgeDiv.className = `flex-shrink-0 w-32 h-[132px] rounded-2xl border-4 flex flex-col items-center justify-between p-2.5 transition-all duration-300 ${card.bg} ${(activeSimIndex === -1 || isHighlight) ? 'opacity-100 scale-100' : 'opacity-40 scale-90'} ${isHighlight ? 'ring-4 ring-yellow-400 border-yellow-500 scale-105 shadow-lg' : ''} cursor-pointer hover:brightness-105 relative`;
+                
+                badgeDiv.innerHTML = `
+                    <div class="w-16 h-16 flex items-center justify-center">${card.icon}</div>
+                    <span class="text-[20px] md:text-[22px] font-black font-jua tracking-tight leading-none truncate w-full text-center pb-1.5">${card.label}</span>
+                `; 
+
+                // 카드 모드 전용 상호작용 매핑
+                if (currentMode === 'card') {
+                    if (card.isInteractive) {
+                        // 확정 카드: 누르면 방향 순환 교체
+                        badgeDiv.onclick = (e) => {
+                            if (isSimulating) return;
+                            cycleCardValue(card.realIndex);
+                        };
+
+                        // 카드 삭제 뱃지 (우측 상단 콤팩트하고 눈에 잘 띄는 × 버튼)
+                        const deleteBtn = document.createElement('button');
+                        deleteBtn.className = "absolute -top-2.5 -right-2.5 w-7 h-7 bg-rose-600 border-2 border-white rounded-full flex items-center justify-center text-white text-xs font-black shadow-md hover:bg-rose-700 transition active:scale-90 z-40";
+                        deleteBtn.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+                        deleteBtn.onclick = (e) => {
+                            e.stopPropagation(); // 카드값 변경 순환 버블링 방어
+                            removeCardAt(card.realIndex);
+                        };
+                        badgeDiv.appendChild(deleteBtn);
+                    } else if (card.isPlaceholder) {
+                        // 흐릿한 꼬리 카드: 클릭 시 꼬리에 체인 카드 확정 추가
+                        badgeDiv.onclick = () => {
+                            if (isSimulating) return;
+                            addManualCardPlaceholder();
+                        };
+                    }
+                }
+                
+                if (isHighlight) badgeDiv.setAttribute('data-highlight', 'true');
+                flowContainer.appendChild(badgeDiv);
+            });
+
+            setTimeout(() => {
+                const highlightedBadge = flowContainer.querySelector('[data-highlight="true"]');
+                if (highlightedBadge) {
+                    const containerWidth = flowContainer.clientWidth;
+                    const badgeLeft = highlightedBadge.offsetLeft;
+                    const badgeWidth = highlightedBadge.clientWidth;
+                    flowContainer.scrollTo({
+                        left: badgeLeft - (containerWidth / 2) + (badgeWidth / 2),
+                        behavior: 'smooth'
+                    });
+                } else if (activeSimIndex === -1) {
+                    flowContainer.scrollTo({ left: flowContainer.scrollWidth, behavior: 'smooth' });
+                }
+            }, 50);
+        }
+
+        function renderManualCardsWithHighlight(activeSimIndex = -1) {
+            renderCompactAlgorithmBadges(activeSimIndex);
+        }
+
+        function slideFlow(direction) {
+            const container = document.getElementById('flowCardsContainer');
+            if (!container) return;
+            const scrollAmount = 180;
+            if (direction === 'left') {
+                container.scrollBy({ left: -scrollAmount, behavior: 'smooth' });
+            } else {
+                container.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+            }
+        }
+
+        // 터치 조작 인터랙션 앵커 포인트 매핑 (로켓단 터치 불허 해제 완료)
+        function renderClickAnchors() {
+            const container = document.getElementById('anchorsLayer'); 
+            container.innerHTML = '';
+            
+            if (isSimulating || currentMode === 'card') return;
+
+            // 1. 칸 내부 터치 앵커 (회전 지시판 전환용) - 로켓단 칸 터치 및 명령어 세팅도 완벽하게 허용
+            for (let r = 0; r < 3; r++) {
+                for (let c = 0; c < 5; c++) {
+                    if (r === 0 && c === 0) continue; 
+                    if (r === 2 && c === 4) continue; 
+                    
+                    const x = getCoordPercent(c, 'x'); 
+                    const y = getCoordPercent(r, 'y'); 
+                    const key = `${r},${c}`;
+                    
+                    const anchor = document.createElement('button');
+                    anchor.className = "absolute flex items-center justify-center z-30 pointer-events-auto rounded-full hover:bg-slate-500/10 transition";
+                    anchor.style.left = `calc(${x}% - 30px)`; 
+                    anchor.style.top = `calc(${y}% - 30px)`;
+                    anchor.style.width = "60px";
+                    anchor.style.height = "60px";
+
+                    const hasCommand = boardCommands[key];
+                    anchor.innerHTML = hasCommand ? 
+                        `<div class="w-12 h-12 rounded-full border-4 border-slate-500/20"></div>` : 
+                        `<div class="w-12 h-12 rounded-full border-4 border-dashed border-slate-300/30 hover:border-slate-500/80 transition"></div>`;
+                    
+                    anchor.onclick = () => handleCellIntersectionClick(r, c, key);
+                    container.appendChild(anchor);
+                }
+            }
+
+            // 2. 칸 사이 경계선 터치 앵커 (시원시원하게 정렬된 직진 도로 디자인)
+            // 가로 경계선 (수평 연결: Row 3개 * Col 4개 = 12개)
+            for (let r = 0; r < 3; r++) {
+                for (let c = 0; c < 4; c++) {
+                    createBridgeAnchor(r, c, "v", container);
+                }
+            }
+            // 세로 경계선 (수직 연결: Row 2개 * Col 5개 = 10개)
+            for (let r = 0; r < 2; r++) {
+                for (let c = 0; c < 5; c++) {
+                    createBridgeAnchor(r, c, "h", container);
+                }
+            }
+        }
+
+        // 아이들이 한 번에 누를 수 있도록 넓은 반응형 패드를 가진 아스팔트 차선 교량 앵커 생성
+        function createBridgeAnchor(r, c, type, container) {
+            let x, y, width, height, key;
+            const isHorizontal = (type === "h"); 
+
+            if (isHorizontal) {
+                // 상하 셀 간 경계 (두꺼운 수직 도로 버튼)
+                x = colPercents[c];
+                y = (rowPercents[r] + rowPercents[r+1]) / 2;
+                width = "48px";   // 넓은 패딩 포함 터치 영역
+                height = "56px";
+                key = `border-h,${r},${c}`;
+            } else {
+                // 좌우 셀 간 경계 (두꺼운 수평 도로 버튼)
+                x = (colPercents[c] + colPercents[c+1]) / 2;
+                y = rowPercents[r];
+                width = "56px";
+                height = "48px";
+                key = `border-v,${r},${c}`;
+            }
+
+            const active = activeBridges[key] === true;
+            const anchor = document.createElement('button');
+            anchor.className = "absolute flex items-center justify-center z-40 pointer-events-auto transition active:scale-95";
+            anchor.style.left = `calc(${x}% - ${parseFloat(width)/2}px)`;
+            anchor.style.top = `calc(${y}% - ${parseFloat(height)/2}px)`;
+            anchor.style.width = width;
+            anchor.style.height = height;
+
+            let innerHtml = "";
+            if (isHorizontal) {
+                // 세로 수직 도로 연결 디자인
+                innerHtml = active ? 
+                    `<div class="w-5 h-12 bg-emerald-500 border-2 border-slate-900 rounded-md shadow-md flex flex-col items-center justify-center relative overflow-hidden animate-[pop_0.15s_ease-out]">
+                        <div class="h-full border-l-2 border-dashed border-white opacity-95"></div>
+                     </div>` : 
+                    `<div class="w-3.5 h-12 bg-slate-200/95 hover:bg-emerald-300 border-2 border-dashed border-slate-400 rounded-md transition duration-150"></div>`;
+            } else {
+                // 가로 수평 도로 연결 디자인
+                innerHtml = active ? 
+                    `<div class="w-12 h-5 bg-emerald-500 border-2 border-slate-900 rounded-md shadow-md flex items-center justify-center relative overflow-hidden animate-[pop_0.15s_ease-out]">
+                        <div class="w-full border-t-2 border-dashed border-white opacity-95"></div>
+                     </div>` : 
+                    `<div class="w-12 h-3.5 bg-slate-200/95 hover:bg-emerald-300 border-2 border-dashed border-slate-400 rounded-md transition duration-150"></div>`;
+            }
+
+            anchor.innerHTML = innerHtml;
+            anchor.onclick = () => {
+                activeBridges[key] = !activeBridges[key];
+                playTone(activeBridges[key] ? 660 : 440, 'sine', 0.1);
+                runAnalysis();
+            };
+            container.appendChild(anchor);
+        }
+
+        // 칸 정중앙 클릭 시: 회전 명령 시퀀스 변경 (없음 -> 좌회전 -> 우회전 -> 없음)
+        function handleCellIntersectionClick(r, c, key) {
+            // 출발지로부터 녹색 도로가 한붓그리기로 도달하지 못했다면 회전 설정 불허가 (오동작 방지 가드)
+            if (!traceResults.visited.has(key)) {
+                return;
+            }
+
+            const currentCmd = boardCommands[key];
+            let nextCmd = null;
+
+            if (!currentCmd) {
+                nextCmd = 'left';
+            } else if (currentCmd === 'left') {
+                nextCmd = 'right';
+            } else {
+                nextCmd = null;
+            }
+
+            if (nextCmd === null) {
+                delete boardCommands[key];
+            } else {
+                boardCommands[key] = nextCmd;
+            }
+
+            playTone(720, 'sine', 0.1);
+            runAnalysis();
+        }
+
+        function updateAnalysisMessage() {
+            // systemMessage 엘리먼트 가딩
+        }
+
+        // [시뮬레이션 전면 통합 기동 엔진]
+        function startSimulation() {
+            if (isSimulating) return;
+            
+            if (currentMode === 'road') {
+                startRoadSimulation();
+            } else {
+                startCardSimulation();
+            }
+        }
+
+        // 1. 길 선택 모드용 주행 로직
+        async function startRoadSimulation() {
+            if (traceResults.path.length < 2 || Object.keys(traceResults.warnings).length > 0) return;
+
+            isSimulating = true; 
+            document.getElementById('anchorsLayer').style.pointerEvents = 'none'; // 주행 중 조작 방지
+            updateButtonStates(); 
+            renderCompactAlgorithmBadges(0);
+            const robot = document.getElementById('robot'); 
+            positionRobotAtStart();
+
+            await sleep(800); 
+            let currR = startRow, currC = startCol;
+            
+            let hasDown = activeBridges["border-h,0,0"] === true;
+            let currentDir = hasDown ? "Down" : "Right"; 
+            currentAngle = hasDown ? 90 : 0;
+
+            let steps = 0;
+            const pathNodes = traceResults.path;
+
+            for (let i = 1; i < pathNodes.length; i++) {
+                if (!isSimulating) break;
+                steps++;
+
+                const targetNode = pathNodes[i];
+                currR = targetNode.r;
+                currC = targetNode.c;
+                currentDir = targetNode.dir;
+
+                renderCompactAlgorithmBadges(steps * 2 - 1);
+                
+                robot.style.left = `calc(${getCoordPercent(currC, 'x')}% - 25px)`; 
+                robot.style.top = `calc(${getCoordPercent(currR, 'y')}% - 25px)`;
+                
+                playTone(300 + steps * 15, 'sine', 0.15, 0.05);
+                await sleep(1000);
+
+                if (!isSimulating) return;
+                renderCompactAlgorithmBadges(steps * 2);
+
+                const nodeKey = `${currR},${currC}`;
+
+                if (gridCharacters[nodeKey]) {
+                    const charData = gridCharacters[nodeKey];
+                    if (charData.isHazard) {
+                        if (!defeatedHazards[nodeKey]) {
+                            defeatedHazards[nodeKey] = true;
+                            playExplosionSound(); 
+                            renderFixedCharacters(); 
+                        } else {
+                            playTone(987.77, 'sine', 0.15, 0.15);
+                        }
+                    } else {
+                        playTone(987.77, 'sine', 0.15, 0.15);
+                    }
+                }
+
+                if (currR === 2 && currC === 4) {
+                    playSuccessSound();
+                    
+                    let collectedCount = 0;
+                    pathNodes.forEach(n => {
+                        const k = `${n.r},${n.c}`;
+                        if (gridCharacters[k] && !gridCharacters[k].isHazard) collectedCount++;
+                    });
+
+                    const descEl = document.getElementById('successDesc');
+                    descEl.innerText = `스스로 설계한 알고리즘 카드로 목적지에 안전하게 골인했습니다!\n(소중한 포켓몬 친구를 총 ${collectedCount}마리 구출하는 데 성공했습니다!)`;
+
+                    document.getElementById('successModal').classList.remove('hidden'); 
+                    isSimulating = false; 
+                    document.getElementById('anchorsLayer').style.pointerEvents = 'auto';
+                    updateButtonStates(); 
+                    renderCompactAlgorithmBadges(-1); 
+                    return;
+                }
+
+                const cmd = boardCommands[nodeKey];
+                if (cmd) {
+                    if (cmd === 'left') { 
+                        currentAngle -= 90; 
+                    } else { 
+                        currentAngle += 90; 
+                    }
+                    
+                    const chassis = document.getElementById('robot-chassis');
+                    if (chassis) {
+                        chassis.style.transform = `rotate(${currentAngle}deg)`;
+                    }
+                    await sleep(800);
+                }
+            }
+
+            isSimulating = false; 
+            document.getElementById('anchorsLayer').style.pointerEvents = 'auto';
+            updateButtonStates(); 
+            renderCompactAlgorithmBadges(-1);
+        }
+
+        // 2. 카드 선택 모드용 주행 로직 (성공 모달 출력 배제, 주행은 끝까지 가능)
+        async function startCardSimulation() {
+            if (manualCards.length === 0) return;
+
+            isSimulating = true;
+            document.getElementById('anchorsLayer').style.pointerEvents = 'none';
+            updateButtonStates();
+            
+            const robot = document.getElementById('robot');
+            let currR = 0;
+            let currC = 0;
+            let currentDir = "Right";
+            currentAngle = 0;
+
+            robot.style.left = `calc(${getCoordPercent(currC, 'x')}% - 25px)`; 
+            robot.style.top = `calc(${getCoordPercent(currR, 'y')}% - 25px)`;
+            const chassis = document.getElementById('robot-chassis');
+            if (chassis) {
+                chassis.style.transform = `rotate(${currentAngle}deg)`;
+            }
+
+            const activePathLayer = document.getElementById('activePathLayer');
+            activePathLayer.innerHTML = '';
+
+            let currentSimPath = [{ r: currR, c: currC, dir: currentDir }];
+            defeatedHazards = {};
+            renderFixedCharacters();
+
+            renderManualCardsWithHighlight(0);
+            await sleep(1000);
+
+            for (let i = 0; i < manualCards.length; i++) {
+                if (!isSimulating) break;
+
+                const cardCmd = manualCards[i];
+                renderManualCardsWithHighlight(i + 1);
+
+                if (cardCmd === 'forward') {
+                    let targetR = currR + directions[currentDir].r;
+                    let targetC = currC + directions[currentDir].c;
+
+                    if (targetR < 0 || targetR >= 3 || targetC < 0 || targetC >= 5) {
+                        playCrashSound();
+                        isSimulating = false;
+                        break;
+                    }
+
+                    currR = targetR;
+                    currC = targetC;
+
+                    currentSimPath.push({ r: currR, c: currC, dir: currentDir });
+                    drawManualProgressPath(currentSimPath);
+
+                    robot.style.left = `calc(${getCoordPercent(currC, 'x')}% - 25px)`; 
+                    robot.style.top = `calc(${getCoordPercent(currR, 'y')}% - 25px)`;
+                    
+                    playTone(300 + i * 20, 'sine', 0.15, 0.05);
+                    await sleep(1000);
+
+                    const nodeKey = `${currR},${currC}`;
+                    if (gridCharacters[nodeKey]) {
+                        const charData = gridCharacters[nodeKey];
+                        if (charData.isHazard) {
+                            if (!defeatedHazards[nodeKey]) {
+                                defeatedHazards[nodeKey] = true;
+                                playExplosionSound();
+                                renderFixedCharacters();
+                            }
+                        } else {
+                            playTone(987.77, 'sine', 0.15, 0.15);
+                        }
+                    }
+                } else if (cardCmd === 'left') {
+                    currentDir = turnLeftMap[currentDir];
+                    currentAngle -= 90;
+                    if (chassis) {
+                        chassis.style.transform = `rotate(${currentAngle}deg)`;
+                    }
+                    await sleep(800);
+                } else if (cardCmd === 'right') {
+                    currentDir = turnRightMap[currentDir];
+                    currentAngle += 90;
+                    if (chassis) {
+                        chassis.style.transform = `rotate(${currentAngle}deg)`;
+                    }
+                    await sleep(800);
+                }
+            }
+
+            isSimulating = false;
+            document.getElementById('anchorsLayer').style.pointerEvents = 'auto';
+            updateButtonStates();
+            renderManualCardsWithHighlight(-1);
+        }
+
+        function drawManualProgressPath(simPath) {
+            const layer = document.getElementById('activePathLayer');
+            layer.innerHTML = '';
+            if (simPath.length < 2) return;
+
+            let pathString = "";
+            simPath.forEach((node, idx) => {
+                const x = getCoordAbsolute(node.c, 'x');
+                const y = getCoordAbsolute(node.r, 'y');
+                if (idx === 0) {
+                    pathString += `M ${x} ${y}`;
+                } else {
+                    pathString += ` L ${x} ${y}`;
+                }
+            });
+
+            const outerPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+            outerPath.setAttribute("d", pathString);
+            outerPath.setAttribute("fill", "none");
+            outerPath.setAttribute("stroke", "#10b981");
+            outerPath.setAttribute("stroke-width", "12");
+            outerPath.setAttribute("stroke-linecap", "round");
+            outerPath.setAttribute("stroke-linejoin", "round");
+            outerPath.setAttribute("opacity", "0.45");
+
+            const innerPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+            innerPath.setAttribute("d", pathString);
+            innerPath.setAttribute("fill", "none");
+            innerPath.setAttribute("stroke", "#ffffff");
+            innerPath.setAttribute("stroke-width", "4");
+            innerPath.setAttribute("stroke-linecap", "round");
+            innerPath.setAttribute("stroke-linejoin", "round");
+            innerPath.setAttribute("class", "flowing-line");
+
+            layer.appendChild(outerPath);
+            layer.appendChild(innerPath);
+        }
+
+        function clearEverything() {
+            isSimulating = false; 
+            document.getElementById('anchorsLayer').style.pointerEvents = 'auto';
+            boardCommands = {}; 
+            activeBridges = {}; 
+            defeatedHazards = {}; 
+            manualCards = ['forward']; // 카드 모드 기본 대기 형태로 리셋
+            startRow = 0; 
+            startCol = 0;
+            playTone(440, 'sine', 0.2); 
+            runAnalysis();
+        }
+
+        function closeSuccessModal() { 
+            document.getElementById('successModal').classList.add('hidden'); 
+            isSimulating = false; 
+            resetSimulation(); 
+        }
+
+        function resetSimulation() { 
+            isSimulating = false; 
+            defeatedHazards = {}; 
+            positionRobotAtStart(); 
+            runAnalysis(); 
+        }
+
+        // 모든 함수가 안전하게 로드된 시점에 switchControlMode를 기동하여 ReferenceError를 완전 예방합니다.
+        window.onload = function() {
+            switchControlMode('road'); 
+        };
+    </script>
+</body>
+</html>

@@ -3,21 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>대화형 CNN Pooling & Subsampling 실습 연구소</title>
+    <title>NVIDIA PilotNet & CNN 실습</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&family=Fira+Code:wght@400;500&display=swap');
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #0F172A;
+            background-color: #0B0F19;
             color: #F8FAFC;
         }
-        .glow-teal {
-            box-shadow: 0 0 15px rgba(45, 212, 191, 0.2);
+        .pixelated {
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
         }
-        .glow-sky {
-            box-shadow: 0 0 15px rgba(56, 189, 248, 0.2);
-        }
+        .glow-teal { box-shadow: 0 0 20px rgba(45, 212, 191, 0.25); }
+        .glow-sky { box-shadow: 0 0 20px rgba(56, 189, 248, 0.25); }
+        .glow-indigo { box-shadow: 0 0 20px rgba(99, 102, 241, 0.25); }
+        .glow-pink { box-shadow: 0 0 20px rgba(244, 114, 182, 0.25); }
+        
         .canvas-container {
             position: relative;
             background: #020617;
@@ -27,137 +30,311 @@
             display: flex;
             align-items: center;
             justify-content: center;
+            transition: all 0.3s ease;
+        }
+        .active-tab {
+            background-color: #1E293B;
+            color: #38BDF8;
+            border-color: #38BDF8;
+        }
+        /* Custom styled slider track */
+        input[type="range"]::-webkit-slider-thumb {
+            background: #38BDF8;
+            border: 2px solid #0F172A;
+            border-radius: 50%;
+            cursor: pointer;
         }
     </style>
 </head>
-<body class="p-4 md:p-8 min-h-screen flex items-center justify-center">
+<body class="p-4 md:p-6 min-h-screen flex items-center justify-center">
 
-    <!-- STREAMING_CHUNK:Styling layout and controls... -->
     <!-- Main Dashboard Container -->
-    <div class="max-w-6xl w-full bg-slate-900 rounded-2xl shadow-2xl border border-slate-800 p-6 space-y-8">
+    <div class="max-w-7xl w-full bg-slate-900 rounded-2xl shadow-2xl border border-slate-800 p-6 space-y-6">
         
         <!-- Header -->
-        <header class="border-b border-slate-800 pb-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <header class="border-b border-slate-800 pb-4 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
             <div>
-                <h1 class="text-2xl md:text-3xl font-extrabold text-sky-400 flex items-center gap-2">
-                    <span>🖼️</span> 대화형 이미지 풀링(Pooling) 실습 연구소
+                <h1 class="text-2xl md:text-3xl font-extrabold text-sky-400 flex items-center gap-3">
+                    <span>🧠</span> NVIDIA PilotNet & CNN 실습 연구소
                 </h1>
                 <p class="text-sm text-slate-400 mt-1">
-                    원하는 이미지를 업로드하고 $f$(필터 크기)와 $s$(점프 간격)를 조절하며 AI의 시각 압축 과정을 체험해보세요.
+                    자율주행 인공지능 전처리(Padding, Pooling)부터 PilotNet 피처맵 및 드롭아웃까지의 연산 파이프라인을 실시간 시뮬레이션합니다.
                 </p>
             </div>
-            <!-- File Upload Button -->
-            <label class="cursor-pointer bg-sky-500 hover:bg-sky-600 text-slate-950 font-bold px-4 py-2.5 rounded-lg transition duration-200 flex items-center gap-2 text-sm shadow-lg shadow-sky-500/10">
-                <span>📁</span> 이미지 업로드
-                <input type="file" id="imageLoader" accept="image/*" class="hidden">
-            </label>
+            
+            <!-- Global Dashboard Controls -->
+            <div class="flex flex-wrap items-center gap-3 w-full lg:w-auto">
+                <!-- Pixel View Mode Toggle -->
+                <button id="btnPixelMode" class="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold px-4 py-2.5 rounded-lg transition duration-200 text-sm border border-slate-700">
+                    <span id="pixelModeIcon">🔍</span> <span id="pixelModeText">크리스프 확대뷰</span>
+                </button>
+                
+                <!-- File Upload Button -->
+                <label class="cursor-pointer bg-sky-500 hover:bg-sky-600 text-slate-950 font-bold px-4 py-2.5 rounded-lg transition duration-200 flex items-center gap-2 text-sm shadow-lg shadow-sky-500/10">
+                    <span>📁</span> 실도로 이미지 업로드
+                    <input type="file" id="imageLoader" accept="image/*" class="hidden">
+                </label>
+            </div>
         </header>
 
-        <!-- Main Workspace -->
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            
-            <!-- Controls & Educational Theory Panel -->
-            <div class="space-y-6 bg-slate-950 p-5 rounded-xl border border-slate-800">
-                <h2 class="text-lg font-bold text-teal-400 border-b border-slate-800 pb-2">⚙️ 하이퍼파라미터 조절</h2>
+        <!-- Tab Selector -->
+        <div class="flex border-b border-slate-800 gap-2">
+            <button id="btnTabPreprocess" class="px-5 py-2.5 font-bold text-sm border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition active-tab">
+                🛠️ 1단계: 전처리 실험실 (Padding & Pooling)
+            </button>
+            <button id="btnTabPilot" class="px-5 py-2.5 font-bold text-sm border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition">
+                🎬 2단계: PilotNet 실시간 레이어 시각화
+            </button>
+        </div>
+
+        <!-- WORKSPACE 1: Interactive Preprocessing Pipeline -->
+        <div id="tabPreprocessContent" class="space-y-6">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Control Panel -->
+                <div class="bg-slate-950 p-5 rounded-xl border border-slate-800 space-y-5">
+                    
+                    <!-- Section 1: Padding Configuration -->
+                    <div class="space-y-3">
+                        <h2 class="text-base font-bold text-teal-400 border-b border-slate-800/80 pb-2">🛡️ Padding(패딩) 설정</h2>
+                        <div class="space-y-2">
+                            <div class="flex justify-between text-sm">
+                                <span class="text-slate-300 font-semibold">패딩 두께 (p)</span>
+                                <span class="text-teal-400 font-bold" id="valP">8 px</span>
+                            </div>
+                            <input type="range" id="paramP" min="0" max="24" value="8" step="1" 
+                                   class="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-teal-400">
+                        </div>
+                        <div class="space-y-2">
+                            <span class="text-xs font-semibold text-slate-400 block">패딩 스타일</span>
+                            <div class="grid grid-cols-3 gap-2" id="paddingModes">
+                                <label class="flex flex-col items-center justify-center p-2 rounded-lg border border-slate-800 bg-slate-900 cursor-pointer text-center text-xs">
+                                    <input type="radio" name="padMode" value="zero" checked class="accent-teal-400 mb-1">
+                                    <span>Zero</span>
+                                </label>
+                                <label class="flex flex-col items-center justify-center p-2 rounded-lg border border-slate-800 bg-slate-900 cursor-pointer text-center text-xs">
+                                    <input type="radio" name="padMode" value="replicate" class="accent-teal-400 mb-1">
+                                    <span>Replicate</span>
+                                </label>
+                                <label class="flex flex-col items-center justify-center p-2 rounded-lg border border-slate-800 bg-slate-900 cursor-pointer text-center text-xs">
+                                    <input type="radio" name="padMode" value="reflect" class="accent-teal-400 mb-1">
+                                    <span>Reflect</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Section 2: Pooling Configuration -->
+                    <div class="space-y-3 border-t border-slate-800/80 pt-4">
+                        <h2 class="text-base font-bold text-indigo-400 border-b border-slate-800/80 pb-2">📐 Pooling(풀링) 설정</h2>
+                        <div class="space-y-2">
+                            <span class="text-xs font-semibold text-slate-400 block">풀링 종류</span>
+                            <div class="grid grid-cols-3 gap-2" id="poolingModes">
+                                <label class="flex flex-col items-center justify-center p-2 rounded-lg border border-slate-800 bg-slate-900 cursor-pointer text-center text-xs">
+                                    <input type="radio" name="poolType" value="none" checked class="accent-indigo-400 mb-1">
+                                    <span>None</span>
+                                </label>
+                                <label class="flex flex-col items-center justify-center p-2 rounded-lg border border-slate-800 bg-slate-900 cursor-pointer text-center text-xs">
+                                    <input type="radio" name="poolType" value="max" class="accent-indigo-400 mb-1">
+                                    <span>Max</span>
+                                </label>
+                                <label class="flex flex-col items-center justify-center p-2 rounded-lg border border-slate-800 bg-slate-900 cursor-pointer text-center text-xs">
+                                    <input type="radio" name="poolType" value="avg" class="accent-indigo-400 mb-1">
+                                    <span>Average</span>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-3 pt-1">
+                            <div class="space-y-1">
+                                <span class="text-xs text-slate-400 font-semibold">필터 크기 (f)</span>
+                                <select id="paramPoolF" class="w-full bg-slate-900 border border-slate-800 text-slate-200 text-xs rounded-lg p-2 focus:ring-1 focus:ring-indigo-400 focus:outline-none">
+                                    <option value="2" selected>2 x 2</option>
+                                    <option value="3">3 x 3</option>
+                                    <option value="4">4 x 4</option>
+                                </select>
+                            </div>
+                            <div class="space-y-1">
+                                <span class="text-xs text-slate-400 font-semibold">스트라이드 (s)</span>
+                                <select id="paramPoolS" class="w-full bg-slate-900 border border-slate-800 text-slate-200 text-xs rounded-lg p-2 focus:ring-1 focus:ring-indigo-400 focus:outline-none">
+                                    <option value="1">1</option>
+                                    <option value="2" selected>2</option>
+                                    <option value="3">3</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Section 3: Live Mathematical Verification -->
+                    <div class="bg-slate-900 rounded-lg p-4 border border-slate-800 space-y-2 font-mono text-xs">
+                        <h3 class="text-sky-400 font-bold text-sm">📐 파이프라인 크기 변화</h3>
+                        <div class="text-slate-400 space-y-1">
+                            <p>입력 크기: <span class="text-slate-200" id="calcRaw">200 x 66</span></p>
+                            <p>패딩 결과: <span class="text-teal-400" id="calcPad">216 x 82</span></p>
+                            <p>풀링 결과: <span class="text-indigo-400" id="calcPool">108 x 41</span></p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Interactive Canvas Columns (Strictly aligned vertically) -->
+                <div class="lg:col-span-2 space-y-4">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        
+                        <!-- Column 1: Original Input -->
+                        <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 flex flex-col justify-between">
+                            <!-- Fixed height header to guarantee absolute vertical symmetry -->
+                            <div class="h-20 flex flex-col justify-start pb-2">
+                                <span class="text-xs font-mono text-slate-500 uppercase">Stage 01</span>
+                                <h3 class="text-sm font-bold text-slate-200 mt-0.5">원본 도로 영상 (Original)</h3>
+                                <span class="text-xs font-mono text-slate-400" id="dimOriginal">200 x 66 px</span>
+                            </div>
+                            
+                            <div class="canvas-container aspect-video glow-sky w-full h-48">
+                                <canvas id="canvasOriginal" class="max-w-full max-h-full"></canvas>
+                                <!-- Interactive tracer crosshair canvas -->
+                                <canvas id="canvasOrigHighlight" class="absolute top-0 left-0 w-full h-full pointer-events-none"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- Column 2: Padded Result -->
+                        <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 flex flex-col justify-between">
+                            <!-- Fixed height header to guarantee absolute vertical symmetry -->
+                            <div class="h-20 flex flex-col justify-start pb-2">
+                                <span class="text-xs font-mono text-teal-500 uppercase">Stage 02</span>
+                                <h3 class="text-sm font-bold text-slate-200 mt-0.5 flex justify-between items-center w-full">
+                                    <span>패딩 적용 (Padded)</span>
+                                </h3>
+                                <span class="text-xs font-mono text-teal-400" id="dimPadded">216 x 82 px</span>
+                            </div>
+                            
+                            <div class="canvas-container aspect-video glow-teal w-full h-48">
+                                <canvas id="canvasPadded" class="max-w-full max-h-full cursor-crosshair"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- Column 3: Pooled Result -->
+                        <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 flex flex-col justify-between">
+                            <!-- Fixed height header to guarantee absolute vertical symmetry -->
+                            <div class="h-20 flex flex-col justify-start pb-2">
+                                <span class="text-xs font-mono text-indigo-500 uppercase">Stage 03</span>
+                                <h3 class="text-sm font-bold text-slate-200 mt-0.5">최종 다운샘플 (Pooled)</h3>
+                                <span class="text-xs font-mono text-indigo-400" id="dimPooled">108 x 41 px</span>
+                            </div>
+                            
+                            <div class="canvas-container aspect-video glow-indigo w-full h-48">
+                                <canvas id="canvasPooled" class="max-w-full max-h-full cursor-crosshair"></canvas>
+                            </div>
+                        </div>
+
+                    </div>
+                    
+                    <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 text-xs text-slate-400">
+                        📌 <span class="text-yellow-400 font-bold">노란색 점선 안쪽이 원본 이미지 영역</span>입니다. 패딩 영역 위에 마우스를 올리면 원본의 어느 위치를 복사/반사했는지 빨간색 조준선이 실시간 추적합니다.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- WORKSPACE 2: PilotNet Stage-by-Stage Feature Map & Dropout -->
+        <div id="tabPilotContent" class="space-y-6 hidden">
+            <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
                 
-                <!-- Filter Size Slider -->
-                <div class="space-y-2">
-                    <div class="flex justify-between text-sm">
-                        <span class="text-slate-300 font-semibold">필터 크기 (f)</span>
-                        <span class="text-sky-400 font-bold" id="valF">2 x 2</span>
+                <!-- Parameter Control Side Panel -->
+                <div class="bg-slate-950 p-5 rounded-xl border border-slate-800 space-y-5 h-fit">
+                    <h2 class="text-base font-bold text-pink-400 border-b border-slate-800 pb-2">🛡️ Dropout 실시간 적용</h2>
+                    <div class="space-y-2">
+                        <div class="flex justify-between text-sm">
+                            <span class="text-slate-300 font-semibold">드롭아웃 비율 (Rate)</span>
+                            <span class="text-pink-400 font-bold" id="valDropout">20%</span>
+                        </div>
+                        <input type="range" id="paramDropout" min="0" max="80" value="20" step="5" 
+                               class="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-pink-400">
+                        <p class="text-xs text-slate-500 leading-relaxed">
+                            CONV4 단계 뒤에 활성화를 무작위로 비활성화하여 과적합을 막는 가중치 드롭아웃 마스크를 시뮬레이션합니다.
+                        </p>
                     </div>
-                    <input type="range" id="paramF" min="2" max="8" value="2" step="1" 
-                           class="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-sky-400">
-                    <p class="text-xs text-slate-500">정보를 한 번에 묶을 돋보기 상자의 규격 크기입니다.</p>
-                </div>
 
-                <!-- Stride Slider -->
-                <div class="space-y-2">
-                    <div class="flex justify-between text-sm">
-                        <span class="text-slate-300 font-semibold">이동 간격 / 스트라이드 (s)</span>
-                        <span class="text-sky-400 font-bold" id="valS">2</span>
-                    </div>
-                    <input type="range" id="paramS" min="1" max="8" value="2" step="1" 
-                           class="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-sky-400">
-                    <p class="text-xs text-slate-500">돋보기 상자가 몇 칸씩 점프하며 이동할지 정합니다.</p>
-                </div>
-
-                <!-- Live Dimension Calculator -->
-                <div class="bg-slate-900 rounded-lg p-4 border border-slate-800 space-y-2 font-mono text-xs">
-                    <h3 class="text-teal-400 font-bold text-sm">📐 크기 압축 계산기</h3>
-                    <div class="text-slate-400">
-                        <p>원본 크기: <span class="text-slate-200" id="rawSize">300 x 300</span></p>
-                        <p>공식: <span class="text-slate-200">Out = (W - f) / s + 1</span></p>
-                        <p class="text-slate-200 font-bold mt-1 text-teal-300">
-                            출력 크기: <span id="outSize">150 x 150</span>
+                    <div class="border-t border-slate-800 pt-4 space-y-3 text-xs text-slate-400">
+                        <h3 class="text-sm font-bold text-slate-300 flex items-center gap-1.5">
+                            <span>💡</span> PilotNet 핵심 포인트
+                        </h3>
+                        <p class="leading-relaxed">
+                            NVIDIA PilotNet은 일반 이미지 처리와 달리 <span class="text-sky-400 font-semibold">MaxPooling을 배제하고 Stride Convolution을 사용하여 위치 정보를 극대화</span>합니다. 단계가 깊어질수록 색상은 누락되고 오직 조향각 가이드인 차선 곡선만 강조되는 흐름을 관찰하세요!
                         </p>
                     </div>
                 </div>
 
-                <!-- Explanation Box -->
-                <div class="border-t border-slate-800 pt-4 space-y-3 text-xs text-slate-400 leading-relaxed">
-                    <h3 class="text-sm font-bold text-slate-300 flex items-center gap-1.5">
-                        <span>💡</span> 학습 포인트
-                    </h3>
-                    <p>
-                        오른쪽 결과 이미지들에 마우스를 올려보세요! <span class="text-teal-400 font-semibold">초록색(Max)</span> 또는 <span class="text-pink-400 font-semibold">핑크색(Avg)</span> 점들이 원래 이미지의 어떤 픽셀 영역에서 수집된 대표 선수인지 원본 돋보기 상자가 실시간으로 연동되어 노란색으로 강조됩니다.
-                    </p>
-                </div>
-            </div>
-
-            <!-- STREAMING_CHUNK:Creating core JavaScript state and helper functions... -->
-            <!-- Interactive Vision Screen (Original & Results) -->
-            <div class="lg:col-span-2 space-y-6">
-                
-                <!-- Display Grid -->
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    
-                    <!-- Original Image Frame -->
-                    <div class="space-y-2">
-                        <h3 class="text-sm font-bold text-slate-300 flex justify-between">
-                            <span>🔍 원본 이미지 (Original)</span>
-                            <span class="text-slate-500 text-xs font-mono" id="lblOriginalW">300 x 300</span>
-                        </h3>
-                        <div class="canvas-container aspect-square glow-sky" id="containerOrig">
-                            <canvas id="canvasOriginal" class="max-w-full max-h-full"></canvas>
-                            <!-- Overlay canvas for interactive magnifying highlights -->
-                            <canvas id="canvasHighlight" class="absolute top-0 left-0 w-full h-full pointer-events-none"></canvas>
-                        </div>
-                    </div>
-
-                    <!-- Processed Images Selector/Tabs -->
-                    <div class="space-y-4">
-                        <div class="flex justify-between items-center border-b border-slate-800 pb-2">
-                            <h3 class="text-sm font-bold text-slate-300">⚡ 풀링 연산 결과 (Pooled Output)</h3>
-                            <span class="text-slate-500 text-xs font-mono" id="lblPooledW">150 x 150</span>
-                        </div>
-
-                        <!-- Result Display Stack -->
-                        <div class="space-y-4">
-                            <!-- Max Pooling Output -->
-                            <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 flex items-center gap-4 hover:border-teal-500/50 transition">
-                                <div class="w-24 h-24 canvas-container glow-teal shrink-0">
-                                    <canvas id="canvasMax" class="max-w-full max-h-full cursor-crosshair"></canvas>
-                                </div>
-                                <div>
-                                    <h4 class="font-bold text-teal-400 text-sm">Max Pooling (최댓값 검출)</h4>
-                                    <p class="text-xs text-slate-400 mt-1 leading-relaxed">
-                                        구역 안에서 가장 뚜렷하고 밝은 특징만 생존시킵니다. <span class="text-slate-200">차선 테두리</span>를 선명하게 유지하는 자율주행의 핵심 비결입니다.
-                                    </p>
-                                </div>
+                <!-- Symmetrical CNN Pipeline row (Strictly matched vertically) -->
+                <div class="lg:col-span-3 space-y-4">
+                    <div class="grid grid-cols-2 md:grid-cols-6 gap-3">
+                        
+                        <!-- Input -->
+                        <div class="bg-slate-950 p-3 rounded-lg border border-slate-800 text-center flex flex-col justify-between">
+                            <div class="h-20 flex flex-col justify-end pb-2">
+                                <span class="text-xs font-mono text-slate-400">INPUT (3 ch)</span>
+                                <h4 class="text-xs font-bold text-slate-200 mt-0.5">전처리 결과</h4>
+                                <span class="text-xs font-mono text-slate-500" id="lblInSize">200x66</span>
                             </div>
+                            <div class="canvas-container aspect-square glow-sky w-full">
+                                <canvas id="canvasPilotInput" class="max-w-full max-h-full"></canvas>
+                            </div>
+                        </div>
 
-                            <!-- Average Pooling Output -->
-                            <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 flex items-center gap-4 hover:border-pink-500/50 transition">
-                                <div class="w-24 h-24 canvas-container glow-sky shrink-0">
-                                    <canvas id="canvasAvg" class="max-w-full max-h-full cursor-crosshair"></canvas>
-                                </div>
-                                <div>
-                                    <h4 class="font-bold text-pink-400 text-sm">Average Pooling (평균값 압축)</h4>
-                                    <p class="text-xs text-slate-400 mt-1 leading-relaxed">
-                                        구역 전체의 흐름을 뭉뚱그려 부드럽게 대변합니다. 전반적인 <span class="text-slate-200">배경색과 형태의 균형</span>을 이룰 때 주로 쓰입니다.
-                                    </p>
-                                </div>
+                        <!-- Conv1 -->
+                        <div class="bg-slate-950 p-3 rounded-lg border border-slate-800 text-center flex flex-col justify-between">
+                            <div class="h-20 flex flex-col justify-end pb-2">
+                                <span class="text-xs font-mono text-sky-400">CONV1 (24 ch)</span>
+                                <h4 class="text-xs font-bold text-slate-200 mt-0.5">외곽선 검출</h4>
+                                <span class="text-xs font-mono text-slate-500">98x31</span>
+                            </div>
+                            <div class="canvas-container aspect-square w-full">
+                                <canvas id="canvasPilotConv1" class="max-w-full max-h-full"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- Conv2 -->
+                        <div class="bg-slate-950 p-3 rounded-lg border border-slate-800 text-center flex flex-col justify-between">
+                            <div class="h-20 flex flex-col justify-end pb-2">
+                                <span class="text-xs font-mono text-sky-400">CONV2 (36 ch)</span>
+                                <h4 class="text-xs font-bold text-slate-200 mt-0.5">텍스처 요약</h4>
+                                <span class="text-xs font-mono text-slate-500">47x14</span>
+                            </div>
+                            <div class="canvas-container aspect-square w-full">
+                                <canvas id="canvasPilotConv2" class="max-w-full max-h-full"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- Conv3 -->
+                        <div class="bg-slate-950 p-3 rounded-lg border border-slate-800 text-center flex flex-col justify-between">
+                            <div class="h-20 flex flex-col justify-end pb-2">
+                                <span class="text-xs font-mono text-sky-400">CONV3 (48 ch)</span>
+                                <h4 class="text-xs font-bold text-slate-200 mt-0.5">차선패턴 추출</h4>
+                                <span class="text-xs font-mono text-slate-500">22x5</span>
+                            </div>
+                            <div class="canvas-container aspect-square w-full">
+                                <canvas id="canvasPilotConv3" class="max-w-full max-h-full"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- Conv4 (Dropout Applied) -->
+                        <div class="bg-slate-950 p-3 rounded-lg border border-pink-500/30 text-center flex flex-col justify-between ring-1 ring-pink-500/10">
+                            <div class="h-20 flex flex-col justify-end pb-2">
+                                <span class="text-xs font-mono text-pink-400">CONV4 (64 ch)</span>
+                                <h4 class="text-xs font-bold text-slate-200 mt-0.5">드롭아웃 마스크</h4>
+                                <span class="text-xs font-mono text-slate-500">20x3</span>
+                            </div>
+                            <div class="canvas-container aspect-square glow-pink w-full">
+                                <canvas id="canvasPilotConv4" class="max-w-full max-h-full"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- Conv5 -->
+                        <div class="bg-slate-950 p-3 rounded-lg border border-slate-800 text-center flex flex-col justify-between">
+                            <div class="h-20 flex flex-col justify-end pb-2">
+                                <span class="text-xs font-mono text-sky-400">CONV5 (64 ch)</span>
+                                <h4 class="text-xs font-bold text-slate-200 mt-0.5">조향 벡터 맵</h4>
+                                <span class="text-xs font-mono text-slate-500">18x1</span>
+                            </div>
+                            <div class="canvas-container aspect-square w-full">
+                                <canvas id="canvasPilotConv5" class="max-w-full max-h-full"></canvas>
                             </div>
                         </div>
 
@@ -169,99 +346,147 @@
 
         <!-- Footer -->
         <footer class="text-center text-xs text-slate-600 border-t border-slate-800/60 pt-4 font-mono">
-            INTERACTIVE VISION SUBSAMPLING LAB • NO SVGS • HARDWARE ACCELERATED CANVAS PROCESSING
+            NVIDIA PILOTNET INTEGRATED CNN LAB • ZERO-DEPENDENCY HARDWARE RENDERING
         </footer>
     </div>
 
-    <!-- STREAMING_CHUNK:Implementing custom image upload and default drawing... -->
+    <!-- Core Scripting -->
     <script>
-        // Core State
         let originalImg = new Image();
-        let scaledWidth = 300;
-        let scaledHeight = 300;
+        let scaledWidth = 200;
+        let scaledHeight = 66;
+        let pixelViewMode = false; // default is crisp zoomed view
 
         // Dom Elements
         const imageLoader = document.getElementById('imageLoader');
-        const canvasOriginal = document.getElementById('canvasOriginal');
-        const canvasHighlight = document.getElementById('canvasHighlight');
-        const canvasMax = document.getElementById('canvasMax');
-        const canvasAvg = document.getElementById('canvasAvg');
+        const btnTabPreprocess = document.getElementById('btnTabPreprocess');
+        const btnTabPilot = document.getElementById('btnTabPilot');
+        const tabPreprocessContent = document.getElementById('tabPreprocessContent');
+        const tabPilotContent = document.getElementById('tabPilotContent');
+        const btnPixelMode = document.getElementById('btnPixelMode');
 
-        const paramF = document.getElementById('paramF');
-        const paramS = document.getElementById('paramS');
-        const valF = document.getElementById('valF');
-        const valS = document.getElementById('valS');
+        // Tab Switching
+        btnTabPreprocess.addEventListener('click', () => {
+            btnTabPreprocess.classList.add('active-tab');
+            btnTabPilot.classList.remove('active-tab');
+            tabPreprocessContent.classList.remove('hidden');
+            tabPilotContent.classList.add('hidden');
+            drawAll();
+        });
+        btnTabPilot.addEventListener('click', () => {
+            btnTabPilot.classList.add('active-tab');
+            btnTabPreprocess.classList.remove('active-tab');
+            tabPilotContent.classList.remove('hidden');
+            tabPreprocessContent.classList.add('hidden');
+            drawAll();
+        });
 
-        const outSizeLabel = document.getElementById('outSize');
-        const rawSizeLabel = document.getElementById('rawSize');
-        const lblOriginalW = document.getElementById('lblOriginalW');
-        const lblPooledW = document.getElementById('lblPooledW');
+        // Toggle Pixel View Mode
+        btnPixelMode.addEventListener('click', () => {
+            pixelViewMode = !pixelViewMode;
+            document.getElementById('pixelModeIcon').innerText = pixelViewMode ? "📐" : "🔍";
+            document.getElementById('pixelModeText').innerText = pixelViewMode ? "1:1 실제 픽셀뷰" : "크리스프 확대뷰";
+            
+            // Adjust CSS class on all canvases
+            const canvases = document.querySelectorAll('canvas');
+            canvases.forEach(canvas => {
+                if (pixelViewMode) {
+                    canvas.classList.remove('max-w-full', 'max-h-full', 'pixelated');
+                    // Force the actual dimensions of the canvas element
+                    canvas.style.width = canvas.width + "px";
+                    canvas.style.height = canvas.height + "px";
+                } else {
+                    canvas.classList.add('max-w-full', 'max-h-full', 'pixelated');
+                    canvas.style.width = "";
+                    canvas.style.height = "";
+                }
+            });
+            drawAll();
+        });
 
-        // Initialize App
+        // Initialize App on load
         window.addEventListener('load', () => {
-            setupSliders();
+            setupParameters();
             setupImageLoader();
-            setupInteractiveHover();
+            setupInteractiveTracer();
             loadDefaultImage();
         });
 
-        function setupSliders() {
-            paramF.addEventListener('input', () => {
-                valF.innerText = `${paramF.value} x ${paramF.value}`;
-                processPooling();
+        function setupParameters() {
+            // Dropout Slider
+            const paramDropout = document.getElementById('paramDropout');
+            const valDropout = document.getElementById('valDropout');
+            paramDropout.addEventListener('input', () => {
+                valDropout.innerText = `${paramDropout.value}%`;
+                drawPilotNetFeatures();
             });
-            paramS.addEventListener('input', () => {
-                valS.innerText = paramS.value;
-                processPooling();
+
+            // Padding Parameters
+            const paramP = document.getElementById('paramP');
+            const valP = document.getElementById('valP');
+            paramP.addEventListener('input', () => {
+                valP.innerText = `${paramP.value} px`;
+                drawPreprocessing();
             });
+
+            const padModes = document.querySelectorAll('input[name="padMode"]');
+            padModes.forEach(radio => {
+                radio.addEventListener('change', drawPreprocessing);
+            });
+
+            // Pooling Parameters
+            const poolTypes = document.querySelectorAll('input[name="poolType"]');
+            poolTypes.forEach(radio => {
+                radio.addEventListener('change', drawPreprocessing);
+            });
+
+            document.getElementById('paramPoolF').addEventListener('change', drawPreprocessing);
+            document.getElementById('paramPoolS').addEventListener('change', drawPreprocessing);
         }
 
-        // Generate synthetic autonomous track image as default so users can play instantly
+        // Generate synthetic road track image
         function loadDefaultImage() {
             const tempCanvas = document.createElement('canvas');
-            tempCanvas.width = 300;
-            tempCanvas.height = 300;
+            tempCanvas.width = 200;
+            tempCanvas.height = 66;
             const ctx = tempCanvas.getContext('2d');
 
-            // Draw mahogany/wood floor texture to match the user's laboratory floor track
-            ctx.fillStyle = '#78350f'; // Dark Warm Wood/Mahogany
-            ctx.fillRect(0, 0, 300, 300);
-
-            // Add some wood grains/planks
+            // Draw Wood Floor
+            ctx.fillStyle = '#78350f'; 
+            ctx.fillRect(0, 0, 200, 66);
             ctx.strokeStyle = '#451a03';
             ctx.lineWidth = 1;
-            for (let i = 0; i < 300; i += 25) {
+            for (let i = 0; i < 200; i += 20) {
                 ctx.beginPath();
                 ctx.moveTo(i, 0);
-                ctx.lineTo(i + 15, 300);
+                ctx.lineTo(i + 5, 66);
                 ctx.stroke();
             }
 
-            // Draw a high contrast white track curve representing a road/lane
+            // Draw curving road lane
             ctx.beginPath();
-            ctx.moveTo(250, 300);
-            ctx.bezierCurveTo(200, 150, 50, 150, 120, 0);
-            ctx.strokeStyle = '#ffffff'; // White lane
-            ctx.lineWidth = 32;
+            ctx.moveTo(150, 66);
+            ctx.bezierCurveTo(120, 35, 40, 35, 80, 0);
+            ctx.strokeStyle = '#ffffff'; 
+            ctx.lineWidth = 10;
             ctx.lineCap = 'round';
             ctx.stroke();
 
-            // Draw inner/outer blue/yellow assist guides
+            // Blue assist guide
             ctx.beginPath();
-            ctx.moveTo(210, 300);
-            ctx.bezierCurveTo(160, 150, 10, 150, 80, 0);
-            ctx.strokeStyle = '#38bdf8'; // Blue guide line
-            ctx.lineWidth = 4;
+            ctx.moveTo(130, 66);
+            ctx.bezierCurveTo(100, 35, 20, 35, 60, 0);
+            ctx.strokeStyle = '#38bdf8'; 
+            ctx.lineWidth = 2;
             ctx.stroke();
 
             originalImg.src = tempCanvas.toDataURL();
             originalImg.onload = () => {
                 scaledWidth = originalImg.width;
                 scaledHeight = originalImg.height;
-                rawSizeLabel.innerText = `${scaledWidth} x ${scaledHeight}`;
-                lblOriginalW.innerText = `${scaledWidth} x ${scaledHeight}`;
-                drawOriginal();
-                processPooling();
+                
+                document.getElementById('dimOriginal').innerText = `${scaledWidth} x ${scaledHeight} px`;
+                drawAll();
             };
         }
 
@@ -271,23 +496,10 @@
                 reader.onload = (event) => {
                     const tempImg = new Image();
                     tempImg.onload = () => {
-                        // Max out container size on canvas to 300px for hyper-fluid live slider performance
-                        const maxDim = 300;
-                        let w = tempImg.width;
-                        let h = tempImg.height;
-                        if (w > h) {
-                            if (w > maxDim) {
-                                h = Math.round((h * maxDim) / w);
-                                w = maxDim;
-                            }
-                        } else {
-                            if (h > maxDim) {
-                                w = Math.round((w * maxDim) / h);
-                                h = maxDim;
-                            }
-                        }
+                        // Resize image strictly to 200 x 66 for PilotNet aspect ratios
+                        const w = 200;
+                        const h = 66;
 
-                        // Resize image internally
                         const scaleCanvas = document.createElement('canvas');
                         scaleCanvas.width = w;
                         scaleCanvas.height = h;
@@ -298,10 +510,8 @@
                         originalImg.onload = () => {
                             scaledWidth = originalImg.width;
                             scaledHeight = originalImg.height;
-                            rawSizeLabel.innerText = `${scaledWidth} x ${scaledHeight}`;
-                            lblOriginalW.innerText = `${scaledWidth} x ${scaledHeight}`;
-                            drawOriginal();
-                            processPooling();
+                            document.getElementById('dimOriginal').innerText = `${scaledWidth} x ${scaledHeight} px`;
+                            drawAll();
                         };
                     };
                     tempImg.src = event.target.result;
@@ -310,158 +520,319 @@
             });
         }
 
-        function drawOriginal() {
-            canvasOriginal.width = scaledWidth;
-            canvasOriginal.height = scaledHeight;
-            const ctx = canvasOriginal.getContext('2d');
-            ctx.drawImage(originalImg, 0, 0);
+        function drawAll() {
+            drawPreprocessing();
+            drawPilotNetFeatures();
 
-            // Match highlight overlay canvas to the same proportions
-            canvasHighlight.width = scaledWidth;
-            canvasHighlight.height = scaledHeight;
-        }
-
-        // STREAMING_CHUNK:Developing the Max and Average Pooling pixel processing algorithms... -->
-        function processPooling() {
-            const f = parseInt(paramF.value);
-            const s = parseInt(paramS.value);
-
-            // Calculate output dimension
-            const outW = Math.floor((scaledWidth - f) / s) + 1;
-            const outH = Math.floor((scaledHeight - f) / s) + 1;
-
-            if (outW <= 0 || outH <= 0) {
-                outSizeLabel.innerText = "설정 불가능 (크기 초과)";
-                return;
+            // Refresh actual dimensions if pixel mode is active
+            if (pixelViewMode) {
+                const canvases = document.querySelectorAll('canvas');
+                canvases.forEach(canvas => {
+                    canvas.style.width = canvas.width + "px";
+                    canvas.style.height = canvas.height + "px";
+                });
             }
-
-            outSizeLabel.innerText = `${outW} x ${outH}`;
-            lblPooledW.innerText = `${outW} x ${outH}`;
-
-            // Get original pixels
-            const origCtx = canvasOriginal.getContext('2d');
-            const imgData = origCtx.getImageData(0, 0, scaledWidth, scaledHeight);
-            const pixels = imgData.data;
-
-            // Generate Outputs
-            const maxResult = calculatePooling(pixels, scaledWidth, scaledHeight, f, s, outW, outH, 'max');
-            const avgResult = calculatePooling(pixels, scaledWidth, scaledHeight, f, s, outW, outH, 'avg');
-
-            // Draw to Output Canvases
-            drawResult(canvasMax, maxResult, outW, outH);
-            drawResult(canvasAvg, avgResult, outW, outH);
         }
 
-        function calculatePooling(srcPixels, width, height, f, s, outW, outH, type) {
-            const destData = new Uint8ClampedArray(outW * outH * 4);
+        // --- PREPROCESSING PIPELINE ---
+        function drawPreprocessing() {
+            // 1. Draw Original
+            const canvasOrig = document.getElementById('canvasOriginal');
+            canvasOrig.width = scaledWidth;
+            canvasOrig.height = scaledHeight;
+            const ctxOrig = canvasOrig.getContext('2d');
+            ctxOrig.drawImage(originalImg, 0, 0);
+
+            // Match highlight tracer
+            document.getElementById('canvasOrigHighlight').width = scaledWidth;
+            document.getElementById('canvasOrigHighlight').height = scaledHeight;
+
+            // 2. Padding Step
+            const p = parseInt(document.getElementById('paramP').value);
+            const padMode = document.querySelector('input[name="padMode"]:checked').value;
+            document.getElementById('valP').innerText = `${p} px`;
+
+            const padW = scaledWidth + 2 * p;
+            const padH = scaledHeight + 2 * p;
+            document.getElementById('dimPadded').innerText = `${padW} x ${padH} px`;
+            document.getElementById('calcPad').innerText = `${padW} x ${padH}`;
+
+            const canvasPadded = document.getElementById('canvasPadded');
+            canvasPadded.width = padW;
+            canvasPadded.height = padH;
+            const ctxPad = canvasPadded.getContext('2d');
+
+            const srcImgData = ctxOrig.getImageData(0, 0, scaledWidth, scaledHeight);
+            const srcPixels = srcImgData.data;
+
+            const paddedImgData = ctxPad.createImageData(padW, padH);
+            const padPixels = paddedImgData.data;
+
+            for (let y = 0; y < padH; y++) {
+                for (let x = 0; x < padW; x++) {
+                    const refCoord = getPaddingSourcePixel(x, y, scaledWidth, scaledHeight, p, padMode);
+                    const destIdx = (y * padW + x) * 4;
+
+                    if (refCoord === null) {
+                        padPixels[destIdx] = 0;
+                        padPixels[destIdx+1] = 0;
+                        padPixels[destIdx+2] = 0;
+                        padPixels[destIdx+3] = 255;
+                    } else {
+                        const srcIdx = (refCoord.y * scaledWidth + refCoord.x) * 4;
+                        padPixels[destIdx] = srcPixels[srcIdx];
+                        padPixels[destIdx+1] = srcPixels[srcIdx+1];
+                        padPixels[destIdx+2] = srcPixels[srcIdx+2];
+                        padPixels[destIdx+3] = 255;
+                    }
+                }
+            }
+            ctxPad.putImageData(paddedImgData, 0, 0);
+
+            // Render yellow guidelines showing the original frame in padded result
+            ctxPad.strokeStyle = '#eab308';
+            ctxPad.lineWidth = 1;
+            ctxPad.setLineDash([3, 3]);
+            ctxPad.strokeRect(p, p, scaledWidth, scaledHeight);
+
+            // 3. Pooling Step
+            const poolType = document.querySelector('input[name="poolType"]:checked').value;
+            const f = parseInt(document.getElementById('paramPoolF').value);
+            const s = parseInt(document.getElementById('paramPoolS').value);
+
+            const canvasPooled = document.getElementById('canvasPooled');
+            
+            if (poolType === 'none') {
+                // If None, Pooled output is just a replica of Padded Frame
+                canvasPooled.width = padW;
+                canvasPooled.height = padH;
+                document.getElementById('dimPooled').innerText = `${padW} x ${padH} px (풀링 미적용)`;
+                document.getElementById('calcPool').innerText = `풀링 미적용`;
+                const poolCtx = canvasPooled.getContext('2d');
+                poolCtx.putImageData(paddedImgData, 0, 0);
+            } else {
+                const poolW = Math.floor((padW - f) / s) + 1;
+                const poolH = Math.floor((padH - f) / s) + 1;
+
+                if (poolW <= 0 || poolH <= 0) {
+                    document.getElementById('dimPooled').innerText = `연산 불가 (값 수정 필요)`;
+                    document.getElementById('calcPool').innerText = `연산 불가`;
+                    return;
+                }
+
+                canvasPooled.width = poolW;
+                canvasPooled.height = poolH;
+                document.getElementById('dimPooled').innerText = `${poolW} x ${poolH} px`;
+                document.getElementById('calcPool').innerText = `${poolW} x ${poolH}`;
+
+                const poolCtx = canvasPooled.getContext('2d');
+                const pooledImgData = poolCtx.createImageData(poolW, poolH);
+                const poolPixels = pooledImgData.data;
+
+                for (let y = 0; y < poolH; y++) {
+                    for (let x = 0; x < poolW; x++) {
+                        const startY = y * s;
+                        const startX = x * s;
+
+                        let rVals = [];
+                        let gVals = [];
+                        let bVals = [];
+
+                        for (let py = 0; py < f; py++) {
+                            for (let px = 0; px < f; px++) {
+                                const curY = startY + py;
+                                const curX = startX + px;
+                                if (curY < padH && curX < padW) {
+                                    const idx = (curY * padW + curX) * 4;
+                                    rVals.push(padPixels[idx]);
+                                    gVals.push(padPixels[idx+1]);
+                                    bVals.push(padPixels[idx+2]);
+                                }
+                            }
+                        }
+
+                        let r, g, b;
+                        if (poolType === 'max') {
+                            r = Math.max(...rVals);
+                            g = Math.max(...gVals);
+                            b = Math.max(...bVals);
+                        } else {
+                            r = rVals.reduce((a, b) => a + b, 0) / rVals.length;
+                            g = gVals.reduce((a, b) => a + b, 0) / gVals.length;
+                            b = bVals.reduce((a, b) => a + b, 0) / bVals.length;
+                        }
+
+                        const destIdx = (y * poolW + x) * 4;
+                        poolPixels[destIdx] = r;
+                        poolPixels[destIdx+1] = g;
+                        poolPixels[destIdx+2] = b;
+                        poolPixels[destIdx+3] = 255;
+                    }
+                }
+                poolCtx.putImageData(pooledImgData, 0, 0);
+            }
+        }
+
+        function getPaddingSourcePixel(x, y, origW, origH, p, mode) {
+            const internalX = x - p;
+            const internalY = y - p;
+            const isOutside = (internalX < 0 || internalX >= origW || internalY < 0 || internalY >= origH);
+
+            if (mode === 'zero') {
+                return isOutside ? null : { x: internalX, y: internalY };
+            }
+            if (mode === 'replicate') {
+                const rx = Math.max(0, Math.min(origW - 1, internalX));
+                const ry = Math.max(0, Math.min(origH - 1, internalY));
+                return { x: rx, y: ry };
+            }
+            if (mode === 'reflect') {
+                let rx = internalX;
+                let ry = internalY;
+                if (rx < 0) rx = -rx - 1;
+                if (rx >= origW) rx = 2 * origW - rx - 1;
+                if (ry < 0) ry = -ry - 1;
+                if (ry >= origH) ry = 2 * origH - ry - 1;
+                rx = Math.max(0, Math.min(origW - 1, rx));
+                ry = Math.max(0, Math.min(origH - 1, ry));
+                return { x: rx, y: ry };
+            }
+            return null;
+        }
+
+        // --- PILOTNET FEATURE VISUALIZER ---
+        function drawPilotNetFeatures() {
+            const canvasInput = document.getElementById('canvasPilotInput');
+            canvasInput.width = 200;
+            canvasInput.height = 66;
+            const ctxIn = canvasInput.getContext('2d');
+            
+            // Render original but ensure it's resized correctly
+            ctxIn.drawImage(originalImg, 0, 0, 200, 66);
+            const srcImgData = ctxIn.getImageData(0, 0, 200, 66);
+            const pixels = srcImgData.data;
+
+            generateConvLayer('canvasPilotConv1', pixels, 200, 66, 98, 31, 'edge');
+            generateConvLayer('canvasPilotConv2', pixels, 200, 66, 47, 14, 'high-edge');
+            generateConvLayer('canvasPilotConv3', pixels, 200, 66, 22, 5, 'pattern');
+            generateConvLayer('canvasPilotConv4', pixels, 200, 66, 20, 3, 'abstract-drop');
+            generateConvLayer('canvasPilotConv5', pixels, 200, 66, 18, 1, 'vector');
+        }
+
+        function generateConvLayer(canvasId, srcPixels, inW, inH, outW, outH, mode) {
+            const canvas = document.getElementById(canvasId);
+            canvas.width = outW;
+            canvas.height = outH;
+            const ctx = canvas.getContext('2d');
+            const imgData = ctx.createImageData(outW, outH);
+            const data = imgData.data;
+
+            const dropoutProb = parseInt(document.getElementById('paramDropout').value) / 100;
 
             for (let y = 0; y < outH; y++) {
                 for (let x = 0; x < outW; x++) {
-                    const startY = y * s;
-                    const startX = x * s;
+                    const srcX = Math.floor((x / outW) * inW);
+                    const srcY = Math.floor((y / outH) * inH);
+                    const srcIdx = (srcY * inW + srcX) * 4;
 
-                    let rVals = [];
-                    let gVals = [];
-                    let bVals = [];
+                    let r = srcPixels[srcIdx];
+                    let g = srcPixels[srcIdx + 1];
+                    let b = srcPixels[srcIdx + 2];
 
-                    // Scan the f x f patch
-                    for (let py = 0; py < f; py++) {
-                        for (let px = 0; px < f; px++) {
-                            const curY = startY + py;
-                            const curX = startX + px;
-                            if (curY < height && curX < width) {
-                                const idx = (curY * width + curX) * 4;
-                                rVals.push(srcPixels[idx]);
-                                gVals.push(srcPixels[idx + 1]);
-                                bVals.push(srcPixels[idx + 2]);
-                            }
+                    if (mode === 'edge') {
+                        const v = (r * 0.299 + g * 0.587 + b * 0.114) > 100 ? 255 : 40;
+                        r = v; g = v; b = v * 1.5;
+                    } else if (mode === 'high-edge') {
+                        const v = (r * 0.299 + g * 0.587 + b * 0.114) > 128 ? 240 : 15;
+                        r = v; g = v * 1.3; b = v;
+                    } else if (mode === 'pattern') {
+                        r = (x % 2 === 0) ? r * 1.2 : 20;
+                        g = g * 0.5;
+                        b = (y % 2 === 0) ? 230 : b;
+                    } else if (mode === 'abstract-drop') {
+                        if (Math.random() < dropoutProb) {
+                            r = 0; g = 0; b = 0;
+                        } else {
+                            r = (r * 0.299 + g * 0.587 + b * 0.114) > 90 ? 250 : 20;
+                            g = 15;
+                            b = 200;
                         }
-                    }
-
-                    let finalR, finalG, finalB;
-                    if (type === 'max') {
-                        finalR = Math.max(...rVals);
-                        finalG = Math.max(...gVals);
-                        finalB = Math.max(...bVals);
-                    } else { // avg
-                        finalR = rVals.reduce((a, b) => a + b, 0) / rVals.length;
-                        finalG = gVals.reduce((a, b) => a + b, 0) / gVals.length;
-                        finalB = bVals.reduce((a, b) => a + b, 0) / bVals.length;
+                    } else if (mode === 'vector') {
+                        const rawVal = r * 0.299 + g * 0.587 + b * 0.114;
+                        r = rawVal > 80 ? 255 : 0;
+                        g = rawVal > 150 ? 255 : 40;
+                        b = 255;
                     }
 
                     const destIdx = (y * outW + x) * 4;
-                    destData[destIdx] = finalR;
-                    destData[destIdx + 1] = finalG;
-                    destData[destIdx + 2] = finalB;
-                    destData[destIdx + 3] = 255; // Alpha
+                    data[destIdx] = Math.min(255, r);
+                    data[destIdx + 1] = Math.min(255, g);
+                    data[destIdx + 2] = Math.min(255, b);
+                    data[destIdx + 3] = 255;
                 }
             }
-            return destData;
-        }
-
-        function drawResult(canvas, pixelData, w, h) {
-            canvas.width = w;
-            canvas.height = h;
-            const ctx = canvas.getContext('2d');
-            const imgData = ctx.createImageData(w, h);
-            imgData.data.set(pixelData);
             ctx.putImageData(imgData, 0, 0);
         }
 
-        // STREAMING_CHUNK:Adding interactive hover highlighting for education... -->
-        // Implement Magnifying glass link to draw an active f x f sliding window box
-        function setupInteractiveHover() {
-            function onHover(e, canvas) {
-                const rect = canvas.getBoundingClientRect();
+        // --- INTERACTIVE COORDINATE TRACER ---
+        function setupInteractiveTracer() {
+            const canvasPadded = document.getElementById('canvasPadded');
+            const canvasOrigHighlight = document.getElementById('canvasOrigHighlight');
+
+            canvasPadded.addEventListener('mousemove', (e) => {
+                const rect = canvasPadded.getBoundingClientRect();
                 const x = e.clientX - rect.left;
                 const y = e.clientY - rect.top;
 
-                // Project mouse coordinates to internal canvas pixels
                 const pctX = x / rect.width;
                 const pctY = y / rect.height;
 
-                const f = parseInt(paramF.value);
-                const s = parseInt(paramS.value);
+                const p = parseInt(document.getElementById('paramP').value);
+                const mode = document.querySelector('input[name="padMode"]:checked').value;
 
-                const outW = Math.floor((scaledWidth - f) / s) + 1;
-                const outH = Math.floor((scaledHeight - f) / s) + 1;
+                const outW = scaledWidth + 2 * p;
+                const outH = scaledHeight + 2 * p;
 
                 const pixelX = Math.floor(pctX * outW);
                 const pixelY = Math.floor(pctY * outH);
 
                 if (pixelX >= 0 && pixelX < outW && pixelY >= 0 && pixelY < outH) {
-                    drawHighlight(pixelX, pixelY, f, s);
+                    const refCoord = getPaddingSourcePixel(pixelX, pixelY, scaledWidth, scaledHeight, p, mode);
+                    drawTracePointer(refCoord);
                 }
-            }
+            });
 
-            function clearHover() {
-                const ctx = canvasHighlight.getContext('2d');
+            canvasPadded.addEventListener('mouseleave', () => {
+                const ctx = canvasOrigHighlight.getContext('2d');
                 ctx.clearRect(0, 0, scaledWidth, scaledHeight);
-            }
-
-            canvasMax.addEventListener('mousemove', (e) => onHover(e, canvasMax));
-            canvasMax.addEventListener('mouseleave', clearHover);
-
-            canvasAvg.addEventListener('mousemove', (e) => onHover(e, canvasAvg));
-            canvasAvg.addEventListener('mouseleave', clearHover);
+            });
         }
 
-        // Render sliding yellow bounding box with nice smooth border to Original Image
-        function drawHighlight(px, py, f, s) {
-            const ctx = canvasHighlight.getContext('2d');
+        function drawTracePointer(coord) {
+            const canvas = document.getElementById('canvasOrigHighlight');
+            const ctx = canvas.getContext('2d');
             ctx.clearRect(0, 0, scaledWidth, scaledHeight);
 
-            const startX = px * s;
-            const startY = py * s;
+            if (coord === null) return;
 
-            // Highlight fill
-            ctx.fillStyle = 'rgba(234, 179, 8, 0.2)'; // Translucent Yellow
-            ctx.fillRect(startX, startY, f, f);
+            ctx.strokeStyle = '#ef4444';
+            ctx.lineWidth = 1;
 
-            // Highlight border
-            ctx.strokeStyle = '#eab308'; // Vibrant yellow
-            ctx.lineWidth = 1.5;
-            ctx.strokeRect(startX, startY, f, f);
+            ctx.beginPath();
+            ctx.moveTo(0, coord.y + 0.5);
+            ctx.lineTo(scaledWidth, coord.y + 0.5);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(coord.x + 0.5, 0);
+            ctx.lineTo(coord.x + 0.5, scaledHeight);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.arc(coord.x + 0.5, coord.y + 0.5, 4, 0, 2 * Math.PI);
+            ctx.fillStyle = '#f87171';
+            ctx.fill();
+            ctx.stroke();
         }
     </script>
 </body>

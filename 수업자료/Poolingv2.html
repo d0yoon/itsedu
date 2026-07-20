@@ -26,50 +26,58 @@
             background: #020617;
             border: 1px solid #1E293B;
             border-radius: 0.75rem;
-            overflow: hidden;
             display: flex;
             align-items: center;
             justify-content: center;
-            transition: all 0.3s ease;
+            overflow: hidden;
+            pointer-events: none; /* 클릭 이벤트를 부모 카드로 넘김 */
         }
         .active-tab {
             background-color: #1E293B;
             color: #38BDF8;
             border-color: #38BDF8;
         }
-        /* Custom styled slider track */
         input[type="range"]::-webkit-slider-thumb {
             background: #38BDF8;
             border: 2px solid #0F172A;
             border-radius: 50%;
             cursor: pointer;
         }
+        canvas {
+            transition: filter 0.2s ease-in-out;
+        }
+        
+        /* 카드 클릭 효과용 클래스 */
+        .clickable-card {
+            cursor: pointer;
+            transition: transform 0.1s, box-shadow 0.2s, filter 0.2s;
+        }
+        .clickable-card:hover {
+            transform: translateY(-2px);
+            filter: brightness(1.2);
+            z-index: 10;
+        }
     </style>
 </head>
-<body class="p-4 md:p-6 min-h-screen flex items-center justify-center">
+<body class="p-4 md:p-6 min-h-screen flex items-start justify-center relative">
 
-    <!-- Main Dashboard Container -->
     <div class="max-w-7xl w-full bg-slate-900 rounded-2xl shadow-2xl border border-slate-800 p-6 space-y-6">
         
-        <!-- Header -->
         <header class="border-b border-slate-800 pb-4 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
             <div>
                 <h1 class="text-2xl md:text-3xl font-extrabold text-sky-400 flex items-center gap-3">
-                    <span>🧠</span> NVIDIA PilotNet & CNN 실습 연구소
+                    <span>🧠</span> NVIDIA PilotNet & CNN 실습
                 </h1>
                 <p class="text-sm text-slate-400 mt-1">
-                    자율주행 인공지능 전처리(Padding, Pooling)부터 PilotNet 피처맵 및 드롭아웃까지의 연산 파이프라인을 실시간 시뮬레이션합니다.
+                    전처리(Padding, Pooling)부터 PilotNet 피처맵 및 드롭아웃까지의 연산 파이프라인을 실시간 시뮬레이션합니다. (각 카드를 클릭하여 팝업 확대)
                 </p>
             </div>
             
-            <!-- Global Dashboard Controls -->
             <div class="flex flex-wrap items-center gap-3 w-full lg:w-auto">
-                <!-- Pixel View Mode Toggle -->
                 <button id="btnPixelMode" class="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold px-4 py-2.5 rounded-lg transition duration-200 text-sm border border-slate-700">
                     <span id="pixelModeIcon">🔍</span> <span id="pixelModeText">크리스프 확대뷰</span>
                 </button>
                 
-                <!-- File Upload Button -->
                 <label class="cursor-pointer bg-sky-500 hover:bg-sky-600 text-slate-950 font-bold px-4 py-2.5 rounded-lg transition duration-200 flex items-center gap-2 text-sm shadow-lg shadow-sky-500/10">
                     <span>📁</span> 실도로 이미지 업로드
                     <input type="file" id="imageLoader" accept="image/*" class="hidden">
@@ -77,25 +85,23 @@
             </div>
         </header>
 
-        <!-- Tab Selector -->
         <div class="flex border-b border-slate-800 gap-2">
             <button id="btnTabPreprocess" class="px-5 py-2.5 font-bold text-sm border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition active-tab">
                 🛠️ 1단계: 전처리 실험실 (Padding & Pooling)
             </button>
             <button id="btnTabPilot" class="px-5 py-2.5 font-bold text-sm border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition">
-                🎬 2단계: PilotNet 실시간 레이어 시각화
+                🎬 2단계: PilotNet 레이어 시각화
             </button>
         </div>
 
-        <!-- WORKSPACE 1: Interactive Preprocessing Pipeline -->
         <div id="tabPreprocessContent" class="space-y-6">
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <!-- Control Panel -->
-                <div class="bg-slate-950 p-5 rounded-xl border border-slate-800 space-y-5">
+                <div class="bg-slate-950 p-5 rounded-xl border border-slate-800 space-y-5 h-fit">
                     
-                    <!-- Section 1: Padding Configuration -->
+                    <!-- Padding Settings -->
                     <div class="space-y-3">
-                        <h2 class="text-base font-bold text-teal-400 border-b border-slate-800/80 pb-2">🛡️ Padding(패딩) 설정</h2>
+                        <h2 class="text-base font-bold text-teal-400 border-b border-slate-800/80 pb-2">🛡️ Padding 설정</h2>
                         <div class="space-y-2">
                             <div class="flex justify-between text-sm">
                                 <span class="text-slate-300 font-semibold">패딩 두께 (p)</span>
@@ -105,48 +111,48 @@
                                    class="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-teal-400">
                         </div>
                         <div class="space-y-2">
-                            <span class="text-xs font-semibold text-slate-400 block">패딩 스타일</span>
-                            <div class="grid grid-cols-3 gap-2" id="paddingModes">
-                                <label class="flex flex-col items-center justify-center p-2 rounded-lg border border-slate-800 bg-slate-900 cursor-pointer text-center text-xs">
-                                    <input type="radio" name="padMode" value="zero" checked class="accent-teal-400 mb-1">
-                                    <span>Zero</span>
+                            <span class="text-xs font-semibold text-slate-400 block">패딩 모드</span>
+                            <div class="grid grid-cols-2 gap-2" id="paddingModes">
+                                <label class="flex justify-center p-2 rounded-lg border border-slate-800 bg-slate-900 cursor-pointer text-xs">
+                                    <input type="radio" name="padMode" value="zero" checked class="accent-teal-400 mr-2"> Zero
                                 </label>
-                                <label class="flex flex-col items-center justify-center p-2 rounded-lg border border-slate-800 bg-slate-900 cursor-pointer text-center text-xs">
-                                    <input type="radio" name="padMode" value="replicate" class="accent-teal-400 mb-1">
-                                    <span>Replicate</span>
+                                <label class="flex justify-center p-2 rounded-lg border border-slate-800 bg-slate-900 cursor-pointer text-xs">
+                                    <input type="radio" name="padMode" value="replicate" class="accent-teal-400 mr-2"> Replicate
                                 </label>
-                                <label class="flex flex-col items-center justify-center p-2 rounded-lg border border-slate-800 bg-slate-900 cursor-pointer text-center text-xs">
-                                    <input type="radio" name="padMode" value="reflect" class="accent-teal-400 mb-1">
-                                    <span>Reflect</span>
+                                <label class="flex justify-center p-2 rounded-lg border border-slate-800 bg-slate-900 cursor-pointer text-xs">
+                                    <input type="radio" name="padMode" value="reflect" class="accent-teal-400 mr-2"> Reflect
+                                </label>
+                                <label class="flex justify-center p-2 rounded-lg border border-slate-800 bg-slate-900 cursor-pointer text-xs">
+                                    <input type="radio" name="padMode" value="circular" class="accent-teal-400 mr-2"> Circular
                                 </label>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Section 2: Pooling Configuration -->
+                    <!-- Pooling Settings -->
                     <div class="space-y-3 border-t border-slate-800/80 pt-4">
-                        <h2 class="text-base font-bold text-indigo-400 border-b border-slate-800/80 pb-2">📐 Pooling(풀링) 설정</h2>
+                        <h2 class="text-base font-bold text-indigo-400 border-b border-slate-800/80 pb-2">📐 Pooling 설정</h2>
                         <div class="space-y-2">
                             <span class="text-xs font-semibold text-slate-400 block">풀링 종류</span>
-                            <div class="grid grid-cols-3 gap-2" id="poolingModes">
-                                <label class="flex flex-col items-center justify-center p-2 rounded-lg border border-slate-800 bg-slate-900 cursor-pointer text-center text-xs">
-                                    <input type="radio" name="poolType" value="none" checked class="accent-indigo-400 mb-1">
-                                    <span>None</span>
+                            <div class="grid grid-cols-2 gap-2" id="poolingModes">
+                                <label class="flex justify-center p-2 rounded-lg border border-slate-800 bg-slate-900 cursor-pointer text-xs">
+                                    <input type="radio" name="poolType" value="none" checked class="accent-indigo-400 mr-2"> None
                                 </label>
-                                <label class="flex flex-col items-center justify-center p-2 rounded-lg border border-slate-800 bg-slate-900 cursor-pointer text-center text-xs">
-                                    <input type="radio" name="poolType" value="max" class="accent-indigo-400 mb-1">
-                                    <span>Max</span>
+                                <label class="flex justify-center p-2 rounded-lg border border-slate-800 bg-slate-900 cursor-pointer text-xs">
+                                    <input type="radio" name="poolType" value="max" class="accent-indigo-400 mr-2"> Max
                                 </label>
-                                <label class="flex flex-col items-center justify-center p-2 rounded-lg border border-slate-800 bg-slate-900 cursor-pointer text-center text-xs">
-                                    <input type="radio" name="poolType" value="avg" class="accent-indigo-400 mb-1">
-                                    <span>Average</span>
+                                <label class="flex justify-center p-2 rounded-lg border border-slate-800 bg-slate-900 cursor-pointer text-xs">
+                                    <input type="radio" name="poolType" value="avg" class="accent-indigo-400 mr-2"> Average
+                                </label>
+                                <label class="flex justify-center p-2 rounded-lg border border-slate-800 bg-slate-900 cursor-pointer text-xs">
+                                    <input type="radio" name="poolType" value="l2" class="accent-indigo-400 mr-2"> L2 Norm
                                 </label>
                             </div>
                         </div>
                         <div class="grid grid-cols-2 gap-3 pt-1">
                             <div class="space-y-1">
-                                <span class="text-xs text-slate-400 font-semibold">필터 크기 (f)</span>
-                                <select id="paramPoolF" class="w-full bg-slate-900 border border-slate-800 text-slate-200 text-xs rounded-lg p-2 focus:ring-1 focus:ring-indigo-400 focus:outline-none">
+                                <span class="text-xs text-slate-400 font-semibold">필터 (f)</span>
+                                <select id="paramPoolF" class="w-full bg-slate-900 border border-slate-800 text-slate-200 text-xs rounded-lg p-2">
                                     <option value="2" selected>2 x 2</option>
                                     <option value="3">3 x 3</option>
                                     <option value="4">4 x 4</option>
@@ -154,7 +160,7 @@
                             </div>
                             <div class="space-y-1">
                                 <span class="text-xs text-slate-400 font-semibold">스트라이드 (s)</span>
-                                <select id="paramPoolS" class="w-full bg-slate-900 border border-slate-800 text-slate-200 text-xs rounded-lg p-2 focus:ring-1 focus:ring-indigo-400 focus:outline-none">
+                                <select id="paramPoolS" class="w-full bg-slate-900 border border-slate-800 text-slate-200 text-xs rounded-lg p-2">
                                     <option value="1">1</option>
                                     <option value="2" selected>2</option>
                                     <option value="3">3</option>
@@ -163,209 +169,209 @@
                         </div>
                     </div>
 
-                    <!-- Section 3: Live Mathematical Verification -->
                     <div class="bg-slate-900 rounded-lg p-4 border border-slate-800 space-y-2 font-mono text-xs">
-                        <h3 class="text-sky-400 font-bold text-sm">📐 파이프라인 크기 변화</h3>
+                        <h3 class="text-sky-400 font-bold text-sm">📐 차원 변화</h3>
                         <div class="text-slate-400 space-y-1">
-                            <p>입력 크기: <span class="text-slate-200" id="calcRaw">200 x 66</span></p>
-                            <p>패딩 결과: <span class="text-teal-400" id="calcPad">216 x 82</span></p>
-                            <p>풀링 결과: <span class="text-indigo-400" id="calcPool">108 x 41</span></p>
+                            <p>원본: <span class="text-slate-200" id="calcRaw">200 x 66</span></p>
+                            <p>패딩: <span class="text-teal-400" id="calcPad">216 x 82</span></p>
+                            <p>풀링: <span class="text-indigo-400" id="calcPool">108 x 41</span></p>
                         </div>
                     </div>
                 </div>
 
-                <!-- Interactive Canvas Columns (Strictly aligned vertically) -->
                 <div class="lg:col-span-2 space-y-4">
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         
-                        <!-- Column 1: Original Input -->
-                        <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 flex flex-col justify-between">
-                            <!-- Fixed height header to guarantee absolute vertical symmetry -->
-                            <div class="h-20 flex flex-col justify-start pb-2">
-                                <span class="text-xs font-mono text-slate-500 uppercase">Stage 01</span>
-                                <h3 class="text-sm font-bold text-slate-200 mt-0.5">원본 도로 영상 (Original)</h3>
+                        <!-- Original Card -->
+                        <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 flex flex-col justify-between clickable-card shadow-lg hover:shadow-sky-500/20" onclick="openModal('canvasOriginal', '01. Original Image')">
+                            <div class="h-16 flex flex-col justify-start pb-2 pointer-events-none">
+                                <h3 class="text-sm font-bold text-slate-200 uppercase text-sky-400">01. Original</h3>
                                 <span class="text-xs font-mono text-slate-400" id="dimOriginal">200 x 66 px</span>
                             </div>
-                            
-                            <div class="canvas-container aspect-video glow-sky w-full h-48">
-                                <canvas id="canvasOriginal" class="max-w-full max-h-full"></canvas>
-                                <!-- Interactive tracer crosshair canvas -->
-                                <canvas id="canvasOrigHighlight" class="absolute top-0 left-0 w-full h-full pointer-events-none"></canvas>
+                            <div class="canvas-container glow-sky w-full h-40 p-2">
+                                <div class="relative inline-flex max-w-full max-h-full">
+                                    <canvas id="canvasOriginal" class="max-w-full max-h-full"></canvas>
+                                    <!-- highlight 캔버스는 마우스 위치 추적용이므로 클릭방지 유지 -->
+                                    <canvas id="canvasOrigHighlight" class="absolute top-0 left-0 w-full h-full pointer-events-none"></canvas>
+                                </div>
                             </div>
                         </div>
 
-                        <!-- Column 2: Padded Result -->
-                        <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 flex flex-col justify-between">
-                            <!-- Fixed height header to guarantee absolute vertical symmetry -->
-                            <div class="h-20 flex flex-col justify-start pb-2">
-                                <span class="text-xs font-mono text-teal-500 uppercase">Stage 02</span>
-                                <h3 class="text-sm font-bold text-slate-200 mt-0.5 flex justify-between items-center w-full">
-                                    <span>패딩 적용 (Padded)</span>
+                        <!-- Padded Card (이건 드래그를 위해 별도 처리) -->
+                        <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 flex flex-col justify-between" id="cardPadded">
+                            <div class="h-16 flex flex-col justify-start pb-2 pointer-events-none">
+                                <h3 class="text-sm font-bold text-slate-200 uppercase text-teal-400 flex justify-between">
+                                    02. Padded
+                                    <button class="bg-slate-800 p-1 rounded hover:bg-slate-700 pointer-events-auto" onclick="openModal('canvasPadded', '02. Padded Image')" title="확대보기">🔍</button>
                                 </h3>
-                                <span class="text-xs font-mono text-teal-400" id="dimPadded">216 x 82 px</span>
+                                <span class="text-xs font-mono text-slate-400" id="dimPadded">216 x 82 px</span>
                             </div>
-                            
-                            <div class="canvas-container aspect-video glow-teal w-full h-48">
-                                <canvas id="canvasPadded" class="max-w-full max-h-full cursor-crosshair"></canvas>
+                            <!-- Padded 캔버스는 마우스 위치를 읽어야 하므로 pointer-events: none을 해제 -->
+                            <div class="canvas-container glow-teal w-full h-40 p-2 cursor-crosshair !pointer-events-auto" id="containerPadded">
+                                <canvas id="canvasPadded" class="max-w-full max-h-full"></canvas>
                             </div>
                         </div>
 
-                        <!-- Column 3: Pooled Result -->
-                        <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 flex flex-col justify-between">
-                            <!-- Fixed height header to guarantee absolute vertical symmetry -->
-                            <div class="h-20 flex flex-col justify-start pb-2">
-                                <span class="text-xs font-mono text-indigo-500 uppercase">Stage 03</span>
-                                <h3 class="text-sm font-bold text-slate-200 mt-0.5">최종 다운샘플 (Pooled)</h3>
-                                <span class="text-xs font-mono text-indigo-400" id="dimPooled">108 x 41 px</span>
+                        <!-- Pooled Card -->
+                        <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 flex flex-col justify-between md:col-span-2 lg:col-span-1 clickable-card shadow-lg hover:shadow-indigo-500/20" onclick="openModal('canvasPooled', '03. Pooled Image')">
+                            <div class="h-16 flex flex-col justify-start pb-2 pointer-events-none">
+                                <h3 class="text-sm font-bold text-slate-200 uppercase text-indigo-400">03. Pooled</h3>
+                                <span class="text-xs font-mono text-slate-400" id="dimPooled">108 x 41 px</span>
                             </div>
-                            
-                            <div class="canvas-container aspect-video glow-indigo w-full h-48">
-                                <canvas id="canvasPooled" class="max-w-full max-h-full cursor-crosshair"></canvas>
+                            <div class="canvas-container glow-indigo w-full h-40 p-2">
+                                <canvas id="canvasPooled" class="max-w-full max-h-full"></canvas>
                             </div>
                         </div>
 
                     </div>
                     
-                    <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 text-xs text-slate-400">
-                        📌 <span class="text-yellow-400 font-bold">노란색 점선 안쪽이 원본 이미지 영역</span>입니다. 패딩 영역 위에 마우스를 올리면 원본의 어느 위치를 복사/반사했는지 빨간색 조준선이 실시간 추적합니다.
+                    <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 text-xs text-slate-400 flex gap-2">
+                        <span>💡</span>
+                        <p>
+                            <span class="text-yellow-400 font-bold">노란색 점선</span>은 원본 이미지의 원래 크기 경계를 의미합니다. 
+                            <span class="text-teal-400 font-bold">Padded 화면 위에 마우스를 올려보세요!</span> 원본의 어떤 픽셀을 참조해왔는지 빨간색 조준선으로 추적되며, <span class="text-sky-400 font-bold">각 카드 레이아웃을 클릭하면 크게 확대</span>하여 볼 수 있습니다.
+                        </p>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- WORKSPACE 2: PilotNet Stage-by-Stage Feature Map & Dropout -->
         <div id="tabPilotContent" class="space-y-6 hidden">
-            <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
-                
-                <!-- Parameter Control Side Panel -->
-                <div class="bg-slate-950 p-5 rounded-xl border border-slate-800 space-y-5 h-fit">
-                    <h2 class="text-base font-bold text-pink-400 border-b border-slate-800 pb-2">🛡️ Dropout 실시간 적용</h2>
+            
+            <!-- 실제 모델이 아님을 명시하는 경고 문구 추가 -->
+            <div class="bg-red-950/30 border border-red-500/30 p-4 rounded-xl text-red-200 text-sm flex gap-3 items-start">
+                <span>⚠️</span>
+                <p>
+                    <strong>시각화 안내:</strong> 현재 웹 브라우저 환경에는 차량 주행을 위해 학습된 <strong>실제 신경망 가중치(Weights)가 포함되어 있지 않습니다.</strong> 따라서 아래 CONV1~5 이미지는 특징 추출(Feature Extraction)의 실제 결과물이 아니며, 데이터 차원이 <strong>어떤 크기로 축소(Downsampling)되는지 직관적으로 보여주기 위한 흑백 모사(Simulation) 데이터</strong>입니다. 각 단계별로 채널(Channel) 수가 늘어나지만, 본 시각화에서는 대표 채널 1개의 차원 변화만 단순화하여 보여줍니다.
+                </p>
+            </div>
+
+            <div class="bg-slate-950 p-5 rounded-xl border border-slate-800 flex flex-col md:flex-row gap-6 items-center">
+                <!-- Dropdown Settings -->
+                <div class="w-full md:w-1/3 space-y-4">
+                    <h2 class="text-lg font-bold text-pink-400 border-b border-slate-800 pb-2">🛡️ Dropout 마스크 설정</h2>
                     <div class="space-y-2">
                         <div class="flex justify-between text-sm">
-                            <span class="text-slate-300 font-semibold">드롭아웃 비율 (Rate)</span>
+                            <span class="text-slate-300 font-semibold">드롭아웃 비율</span>
                             <span class="text-pink-400 font-bold" id="valDropout">20%</span>
                         </div>
                         <input type="range" id="paramDropout" min="0" max="80" value="20" step="5" 
                                class="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-pink-400">
-                        <p class="text-xs text-slate-500 leading-relaxed">
-                            CONV4 단계 뒤에 활성화를 무작위로 비활성화하여 과적합을 막는 가중치 드롭아웃 마스크를 시뮬레이션합니다.
-                        </p>
                     </div>
-
-                    <div class="border-t border-slate-800 pt-4 space-y-3 text-xs text-slate-400">
-                        <h3 class="text-sm font-bold text-slate-300 flex items-center gap-1.5">
-                            <span>💡</span> PilotNet 핵심 포인트
-                        </h3>
-                        <p class="leading-relaxed">
-                            NVIDIA PilotNet은 일반 이미지 처리와 달리 <span class="text-sky-400 font-semibold">MaxPooling을 배제하고 Stride Convolution을 사용하여 위치 정보를 극대화</span>합니다. 단계가 깊어질수록 색상은 누락되고 오직 조향각 가이드인 차선 곡선만 강조되는 흐름을 관찰하세요!
-                        </p>
+                    <p class="text-xs text-slate-500">전처리된 데이터를 받아 CONV4 단계 뒤에서 무작위로 픽셀을 소거(Dropout)하여 과적합을 막는 과정을 시각화합니다.</p>
+                </div>
+                
+                <!-- Big Input Canvas -->
+                <div class="w-full md:w-2/3 border border-slate-800 bg-slate-900 rounded-lg p-4 flex flex-col items-center clickable-card hover:border-sky-500/50" onclick="openModal('canvasPilotInput', 'PilotNet INPUT (전처리 완료)')">
+                    <div class="w-full flex justify-between mb-2 pointer-events-none">
+                        <span class="text-sky-400 font-bold uppercase text-sm">INPUT (전처리 완료 데이터)</span>
+                        <span class="text-slate-400 font-mono text-xs" id="lblInSize">200x66</span>
+                    </div>
+                    <div class="w-full flex justify-center bg-black/50 p-2 rounded shadow-inner overflow-hidden pointer-events-none">
+                        <canvas id="canvasPilotInput" class="max-w-full h-auto rounded border border-slate-700"></canvas>
                     </div>
                 </div>
+            </div>
 
-                <!-- Symmetrical CNN Pipeline row (Strictly matched vertically) -->
-                <div class="lg:col-span-3 space-y-4">
-                    <div class="grid grid-cols-2 md:grid-cols-6 gap-3">
-                        
-                        <!-- Input -->
-                        <div class="bg-slate-950 p-3 rounded-lg border border-slate-800 text-center flex flex-col justify-between">
-                            <div class="h-20 flex flex-col justify-end pb-2">
-                                <span class="text-xs font-mono text-slate-400">INPUT (3 ch)</span>
-                                <h4 class="text-xs font-bold text-slate-200 mt-0.5">전처리 결과</h4>
-                                <span class="text-xs font-mono text-slate-500" id="lblInSize">200x66</span>
-                            </div>
-                            <div class="canvas-container aspect-square glow-sky w-full">
-                                <canvas id="canvasPilotInput" class="max-w-full max-h-full"></canvas>
-                            </div>
-                        </div>
-
-                        <!-- Conv1 -->
-                        <div class="bg-slate-950 p-3 rounded-lg border border-slate-800 text-center flex flex-col justify-between">
-                            <div class="h-20 flex flex-col justify-end pb-2">
-                                <span class="text-xs font-mono text-sky-400">CONV1 (24 ch)</span>
-                                <h4 class="text-xs font-bold text-slate-200 mt-0.5">외곽선 검출</h4>
-                                <span class="text-xs font-mono text-slate-500">98x31</span>
-                            </div>
-                            <div class="canvas-container aspect-square w-full">
-                                <canvas id="canvasPilotConv1" class="max-w-full max-h-full"></canvas>
-                            </div>
-                        </div>
-
-                        <!-- Conv2 -->
-                        <div class="bg-slate-950 p-3 rounded-lg border border-slate-800 text-center flex flex-col justify-between">
-                            <div class="h-20 flex flex-col justify-end pb-2">
-                                <span class="text-xs font-mono text-sky-400">CONV2 (36 ch)</span>
-                                <h4 class="text-xs font-bold text-slate-200 mt-0.5">텍스처 요약</h4>
-                                <span class="text-xs font-mono text-slate-500">47x14</span>
-                            </div>
-                            <div class="canvas-container aspect-square w-full">
-                                <canvas id="canvasPilotConv2" class="max-w-full max-h-full"></canvas>
-                            </div>
-                        </div>
-
-                        <!-- Conv3 -->
-                        <div class="bg-slate-950 p-3 rounded-lg border border-slate-800 text-center flex flex-col justify-between">
-                            <div class="h-20 flex flex-col justify-end pb-2">
-                                <span class="text-xs font-mono text-sky-400">CONV3 (48 ch)</span>
-                                <h4 class="text-xs font-bold text-slate-200 mt-0.5">차선패턴 추출</h4>
-                                <span class="text-xs font-mono text-slate-500">22x5</span>
-                            </div>
-                            <div class="canvas-container aspect-square w-full">
-                                <canvas id="canvasPilotConv3" class="max-w-full max-h-full"></canvas>
-                            </div>
-                        </div>
-
-                        <!-- Conv4 (Dropout Applied) -->
-                        <div class="bg-slate-950 p-3 rounded-lg border border-pink-500/30 text-center flex flex-col justify-between ring-1 ring-pink-500/10">
-                            <div class="h-20 flex flex-col justify-end pb-2">
-                                <span class="text-xs font-mono text-pink-400">CONV4 (64 ch)</span>
-                                <h4 class="text-xs font-bold text-slate-200 mt-0.5">드롭아웃 마스크</h4>
-                                <span class="text-xs font-mono text-slate-500">20x3</span>
-                            </div>
-                            <div class="canvas-container aspect-square glow-pink w-full">
-                                <canvas id="canvasPilotConv4" class="max-w-full max-h-full"></canvas>
-                            </div>
-                        </div>
-
-                        <!-- Conv5 -->
-                        <div class="bg-slate-950 p-3 rounded-lg border border-slate-800 text-center flex flex-col justify-between">
-                            <div class="h-20 flex flex-col justify-end pb-2">
-                                <span class="text-xs font-mono text-sky-400">CONV5 (64 ch)</span>
-                                <h4 class="text-xs font-bold text-slate-200 mt-0.5">조향 벡터 맵</h4>
-                                <span class="text-xs font-mono text-slate-500">18x1</span>
-                            </div>
-                            <div class="canvas-container aspect-square w-full">
-                                <canvas id="canvasPilotConv5" class="max-w-full max-h-full"></canvas>
-                            </div>
-                        </div>
-
+            <!-- Symmetrical CNN Pipeline row -->
+            <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
+                <!-- Conv1 -->
+                <div class="bg-slate-950 p-3 rounded-lg border border-slate-800 text-center flex flex-col justify-between clickable-card" onclick="openModal('canvasPilotConv1', 'CONV1 (24 ch) - 외곽선 검출')">
+                    <div class="h-16 flex flex-col justify-end pb-2 pointer-events-none">
+                        <span class="text-xs font-mono text-sky-400">CONV1 (24 ch)</span>
+                        <h4 class="text-xs font-bold text-slate-200 mt-0.5">외곽선 검출</h4>
+                        <span class="text-xs font-mono text-slate-500">98x31</span>
+                    </div>
+                    <div class="canvas-container w-full h-24 p-1">
+                        <canvas id="canvasPilotConv1" class="max-w-full max-h-full"></canvas>
                     </div>
                 </div>
-
+                <!-- Conv2 -->
+                <div class="bg-slate-950 p-3 rounded-lg border border-slate-800 text-center flex flex-col justify-between clickable-card" onclick="openModal('canvasPilotConv2', 'CONV2 (36 ch) - 텍스처 요약')">
+                    <div class="h-16 flex flex-col justify-end pb-2 pointer-events-none">
+                        <span class="text-xs font-mono text-sky-400">CONV2 (36 ch)</span>
+                        <h4 class="text-xs font-bold text-slate-200 mt-0.5">텍스처 요약</h4>
+                        <span class="text-xs font-mono text-slate-500">47x14</span>
+                    </div>
+                    <div class="canvas-container w-full h-24 p-1">
+                        <canvas id="canvasPilotConv2" class="max-w-full max-h-full"></canvas>
+                    </div>
+                </div>
+                <!-- Conv3 -->
+                <div class="bg-slate-950 p-3 rounded-lg border border-slate-800 text-center flex flex-col justify-between clickable-card" onclick="openModal('canvasPilotConv3', 'CONV3 (48 ch) - 차선패턴 추출')">
+                    <div class="h-16 flex flex-col justify-end pb-2 pointer-events-none">
+                        <span class="text-xs font-mono text-sky-400">CONV3 (48 ch)</span>
+                        <h4 class="text-xs font-bold text-slate-200 mt-0.5">차선패턴 추출</h4>
+                        <span class="text-xs font-mono text-slate-500">22x5</span>
+                    </div>
+                    <div class="canvas-container w-full h-24 p-1">
+                        <canvas id="canvasPilotConv3" class="max-w-full max-h-full"></canvas>
+                    </div>
+                </div>
+                <!-- Conv4 -->
+                <div class="bg-slate-950 p-3 rounded-lg border border-pink-500/30 text-center flex flex-col justify-between ring-1 ring-pink-500/10 clickable-card" onclick="openModal('canvasPilotConv4', 'CONV4 (64 ch) - 드롭아웃 마스크')">
+                    <div class="h-16 flex flex-col justify-end pb-2 pointer-events-none">
+                        <span class="text-xs font-mono text-pink-400">CONV4 (64 ch)</span>
+                        <h4 class="text-xs font-bold text-slate-200 mt-0.5">드롭아웃 마스크</h4>
+                        <span class="text-xs font-mono text-slate-500">20x3</span>
+                    </div>
+                    <div class="canvas-container glow-pink w-full h-24 p-1">
+                        <canvas id="canvasPilotConv4" class="max-w-full max-h-full"></canvas>
+                    </div>
+                </div>
+                <!-- Conv5 -->
+                <div class="bg-slate-950 p-3 rounded-lg border border-slate-800 text-center flex flex-col justify-between md:col-span-1 col-span-2 clickable-card" onclick="openModal('canvasPilotConv5', 'CONV5 (64 ch) - 조향 벡터 맵')">
+                    <div class="h-16 flex flex-col justify-end pb-2 pointer-events-none">
+                        <span class="text-xs font-mono text-sky-400">CONV5 (64 ch)</span>
+                        <h4 class="text-xs font-bold text-slate-200 mt-0.5">조향 벡터 맵</h4>
+                        <span class="text-xs font-mono text-slate-500">18x1</span>
+                    </div>
+                    <div class="canvas-container w-full h-24 p-1 bg-[#1e1b4b] overflow-hidden relative"> <!-- 배경색 지정하여 보기 좋게 만듦 -->
+                        <canvas id="canvasPilotConv5" class="max-w-full max-h-full"></canvas>
+                    </div>
+                </div>
             </div>
         </div>
-
-        <!-- Footer -->
-        <footer class="text-center text-xs text-slate-600 border-t border-slate-800/60 pt-4 font-mono">
-            NVIDIA PILOTNET INTEGRATED CNN LAB • ZERO-DEPENDENCY HARDWARE RENDERING
-        </footer>
     </div>
 
-    <!-- Core Scripting -->
+    <div id="imageModal" class="fixed inset-0 z-[100] hidden bg-slate-950/90 backdrop-blur-sm flex items-center justify-center p-4 transition-all duration-300">
+        <div class="bg-slate-900 border border-slate-700 rounded-xl shadow-[0_0_50px_rgba(0,0,0,0.5)] overflow-hidden max-w-5xl w-full flex flex-col relative" onclick="event.stopPropagation()">
+            <!-- Header -->
+            <div class="flex justify-between items-center p-4 border-b border-slate-800 bg-slate-950">
+                <h3 id="modalTitle" class="text-lg font-bold text-sky-400 flex items-center gap-2">
+                    <span>🔎</span> 상세 보기
+                </h3>
+                <button id="closeModal" class="text-slate-400 hover:text-white transition bg-slate-800 hover:bg-slate-700 p-1.5 rounded-lg border border-slate-700">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            
+            <!-- Image Container -->
+            <div class="p-6 flex items-center justify-center bg-[#020617] overflow-auto min-h-[300px] max-h-[70vh]">
+                <img id="modalImage" class="pixelated border border-slate-700 shadow-2xl rounded-sm bg-black" />
+            </div>
+            
+            <!-- Footer -->
+            <div class="p-4 border-t border-slate-800 bg-slate-950 flex flex-col sm:flex-row justify-between items-center text-sm gap-2">
+                <div class="text-slate-300 font-mono bg-slate-800 px-3 py-1 rounded-md border border-slate-700" id="modalDimensions"></div>
+                <div class="text-slate-400 text-xs sm:text-sm">💡 픽셀이 깨지지 않도록 크리스프(Crisp) 렌더링이 적용되어 뚜렷하게 보입니다.</div>
+            </div>
+        </div>
+    </div>
+
     <script>
+        let rawUploadedImg = new Image(); // 진짜 원본 이미지를 보관할 변수
         let originalImg = new Image();
         let scaledWidth = 200;
         let scaledHeight = 66;
-        let pixelViewMode = false; // default is crisp zoomed view
+        let pixelViewMode = false;
 
-        // Dom Elements
-        const imageLoader = document.getElementById('imageLoader');
         const btnTabPreprocess = document.getElementById('btnTabPreprocess');
         const btnTabPilot = document.getElementById('btnTabPilot');
         const tabPreprocessContent = document.getElementById('tabPreprocessContent');
         const tabPilotContent = document.getElementById('tabPilotContent');
         const btnPixelMode = document.getElementById('btnPixelMode');
 
-        // Tab Switching
         btnTabPreprocess.addEventListener('click', () => {
             btnTabPreprocess.classList.add('active-tab');
             btnTabPilot.classList.remove('active-tab');
@@ -373,6 +379,7 @@
             tabPilotContent.classList.add('hidden');
             drawAll();
         });
+
         btnTabPilot.addEventListener('click', () => {
             btnTabPilot.classList.add('active-tab');
             btnTabPreprocess.classList.remove('active-tab');
@@ -381,22 +388,23 @@
             drawAll();
         });
 
-        // Toggle Pixel View Mode
         btnPixelMode.addEventListener('click', () => {
             pixelViewMode = !pixelViewMode;
             document.getElementById('pixelModeIcon').innerText = pixelViewMode ? "📐" : "🔍";
-            document.getElementById('pixelModeText').innerText = pixelViewMode ? "1:1 실제 픽셀뷰" : "크리스프 확대뷰";
+            document.getElementById('pixelModeText').innerText = pixelViewMode ? "화면 맞춤 뷰" : "실제 픽셀 크기 보기";
             
-            // Adjust CSS class on all canvases
-            const canvases = document.querySelectorAll('canvas');
+            const canvases = document.querySelectorAll('.canvas-container canvas');
             canvases.forEach(canvas => {
+                if (canvas.id === 'canvasOrigHighlight') return;
+                
                 if (pixelViewMode) {
-                    canvas.classList.remove('max-w-full', 'max-h-full', 'pixelated');
-                    // Force the actual dimensions of the canvas element
+                    canvas.classList.remove('max-w-full', 'max-h-full');
+                    canvas.classList.add('pixelated');
                     canvas.style.width = canvas.width + "px";
                     canvas.style.height = canvas.height + "px";
                 } else {
-                    canvas.classList.add('max-w-full', 'max-h-full', 'pixelated');
+                    canvas.classList.add('max-w-full', 'max-h-full');
+                    canvas.classList.remove('pixelated');
                     canvas.style.width = "";
                     canvas.style.height = "";
                 }
@@ -404,157 +412,114 @@
             drawAll();
         });
 
-        // Initialize App on load
         window.addEventListener('load', () => {
             setupParameters();
             setupImageLoader();
             setupInteractiveTracer();
+            setupModalHandling(); // 모달 닫기 이벤트 등록
             loadDefaultImage();
         });
 
         function setupParameters() {
-            // Dropout Slider
-            const paramDropout = document.getElementById('paramDropout');
-            const valDropout = document.getElementById('valDropout');
-            paramDropout.addEventListener('input', () => {
-                valDropout.innerText = `${paramDropout.value}%`;
+            document.getElementById('paramDropout').addEventListener('input', (e) => {
+                document.getElementById('valDropout').innerText = `${e.target.value}%`;
                 drawPilotNetFeatures();
             });
 
-            // Padding Parameters
-            const paramP = document.getElementById('paramP');
-            const valP = document.getElementById('valP');
-            paramP.addEventListener('input', () => {
-                valP.innerText = `${paramP.value} px`;
-                drawPreprocessing();
+            document.getElementById('paramP').addEventListener('input', (e) => {
+                document.getElementById('valP').innerText = `${e.target.value} px`;
+                drawAll();
             });
 
-            const padModes = document.querySelectorAll('input[name="padMode"]');
-            padModes.forEach(radio => {
-                radio.addEventListener('change', drawPreprocessing);
+            document.querySelectorAll('input[type="radio"], select').forEach(el => {
+                el.addEventListener('change', drawAll);
             });
-
-            // Pooling Parameters
-            const poolTypes = document.querySelectorAll('input[name="poolType"]');
-            poolTypes.forEach(radio => {
-                radio.addEventListener('change', drawPreprocessing);
-            });
-
-            document.getElementById('paramPoolF').addEventListener('change', drawPreprocessing);
-            document.getElementById('paramPoolS').addEventListener('change', drawPreprocessing);
         }
 
-        // Generate synthetic road track image
         function loadDefaultImage() {
             const tempCanvas = document.createElement('canvas');
             tempCanvas.width = 200;
             tempCanvas.height = 66;
             const ctx = tempCanvas.getContext('2d');
-
-            // Draw Wood Floor
             ctx.fillStyle = '#78350f'; 
             ctx.fillRect(0, 0, 200, 66);
             ctx.strokeStyle = '#451a03';
             ctx.lineWidth = 1;
             for (let i = 0; i < 200; i += 20) {
-                ctx.beginPath();
-                ctx.moveTo(i, 0);
-                ctx.lineTo(i + 5, 66);
-                ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i + 5, 66); ctx.stroke();
             }
-
-            // Draw curving road lane
             ctx.beginPath();
-            ctx.moveTo(150, 66);
-            ctx.bezierCurveTo(120, 35, 40, 35, 80, 0);
-            ctx.strokeStyle = '#ffffff'; 
-            ctx.lineWidth = 10;
-            ctx.lineCap = 'round';
-            ctx.stroke();
-
-            // Blue assist guide
+            ctx.moveTo(150, 66); ctx.bezierCurveTo(120, 35, 40, 35, 80, 0);
+            ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 10; ctx.lineCap = 'round'; ctx.stroke();
             ctx.beginPath();
-            ctx.moveTo(130, 66);
-            ctx.bezierCurveTo(100, 35, 20, 35, 60, 0);
-            ctx.strokeStyle = '#38bdf8'; 
-            ctx.lineWidth = 2;
-            ctx.stroke();
+            ctx.moveTo(130, 66); ctx.bezierCurveTo(100, 35, 20, 35, 60, 0);
+            ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 2; ctx.stroke();
 
+            // 기본 이미지 로드 시 원본 보관용과 모델용(200x66)을 동일하게 설정
+            rawUploadedImg.src = tempCanvas.toDataURL();
             originalImg.src = tempCanvas.toDataURL();
-            originalImg.onload = () => {
-                scaledWidth = originalImg.width;
-                scaledHeight = originalImg.height;
-                
-                document.getElementById('dimOriginal').innerText = `${scaledWidth} x ${scaledHeight} px`;
-                drawAll();
-            };
+            originalImg.onload = processLoadedImage;
         }
 
         function setupImageLoader() {
-            imageLoader.addEventListener('change', (e) => {
+            document.getElementById('imageLoader').addEventListener('change', (e) => {
                 const reader = new FileReader();
                 reader.onload = (event) => {
-                    const tempImg = new Image();
-                    tempImg.onload = () => {
-                        // Resize image strictly to 200 x 66 for PilotNet aspect ratios
-                        const w = 200;
-                        const h = 66;
-
+                    rawUploadedImg = new Image();
+                    rawUploadedImg.onload = () => {
                         const scaleCanvas = document.createElement('canvas');
-                        scaleCanvas.width = w;
-                        scaleCanvas.height = h;
+                        // 강제로 도로 이미지 규격인 200x66으로 리사이즈하여 모델 인풋으로 규격화합니다.
+                        scaleCanvas.width = 200;
+                        scaleCanvas.height = 66;
                         const scaleCtx = scaleCanvas.getContext('2d');
-                        scaleCtx.drawImage(tempImg, 0, 0, w, h);
-
+                        scaleCtx.drawImage(rawUploadedImg, 0, 0, 200, 66);
+                        
                         originalImg.src = scaleCanvas.toDataURL();
-                        originalImg.onload = () => {
-                            scaledWidth = originalImg.width;
-                            scaledHeight = originalImg.height;
-                            document.getElementById('dimOriginal').innerText = `${scaledWidth} x ${scaledHeight} px`;
-                            drawAll();
-                        };
+                        originalImg.onload = processLoadedImage;
                     };
-                    tempImg.src = event.target.result;
+                    rawUploadedImg.src = event.target.result;
                 };
-                reader.readAsDataURL(e.target.files[0]);
+                if(e.target.files[0]) {
+                    reader.readAsDataURL(e.target.files[0]);
+                }
             });
+        }
+
+        function processLoadedImage() {
+            scaledWidth = originalImg.width;
+            scaledHeight = originalImg.height;
+            document.getElementById('dimOriginal').innerText = `${scaledWidth} x ${scaledHeight} px`;
+            drawAll();
         }
 
         function drawAll() {
             drawPreprocessing();
             drawPilotNetFeatures();
 
-            // Refresh actual dimensions if pixel mode is active
             if (pixelViewMode) {
-                const canvases = document.querySelectorAll('canvas');
-                canvases.forEach(canvas => {
-                    canvas.style.width = canvas.width + "px";
-                    canvas.style.height = canvas.height + "px";
+                document.querySelectorAll('.canvas-container canvas').forEach(canvas => {
+                    if (canvas.id !== 'canvasOrigHighlight') {
+                        canvas.style.width = canvas.width + "px";
+                        canvas.style.height = canvas.height + "px";
+                    }
                 });
             }
         }
 
-        // --- PREPROCESSING PIPELINE ---
         function drawPreprocessing() {
-            // 1. Draw Original
             const canvasOrig = document.getElementById('canvasOriginal');
             canvasOrig.width = scaledWidth;
             canvasOrig.height = scaledHeight;
             const ctxOrig = canvasOrig.getContext('2d');
             ctxOrig.drawImage(originalImg, 0, 0);
 
-            // Match highlight tracer
-            document.getElementById('canvasOrigHighlight').width = scaledWidth;
-            document.getElementById('canvasOrigHighlight').height = scaledHeight;
-
-            // 2. Padding Step
             const p = parseInt(document.getElementById('paramP').value);
             const padMode = document.querySelector('input[name="padMode"]:checked').value;
-            document.getElementById('valP').innerText = `${p} px`;
-
             const padW = scaledWidth + 2 * p;
             const padH = scaledHeight + 2 * p;
+            
             document.getElementById('dimPadded').innerText = `${padW} x ${padH} px`;
+            document.getElementById('calcRaw').innerText = `${scaledWidth} x ${scaledHeight}`;
             document.getElementById('calcPad').innerText = `${padW} x ${padH}`;
 
             const canvasPadded = document.getElementById('canvasPadded');
@@ -562,24 +527,19 @@
             canvasPadded.height = padH;
             const ctxPad = canvasPadded.getContext('2d');
 
-            const srcImgData = ctxOrig.getImageData(0, 0, scaledWidth, scaledHeight);
-            const srcPixels = srcImgData.data;
-
+            const srcPixels = ctxOrig.getImageData(0, 0, scaledWidth, scaledHeight).data;
             const paddedImgData = ctxPad.createImageData(padW, padH);
             const padPixels = paddedImgData.data;
 
             for (let y = 0; y < padH; y++) {
                 for (let x = 0; x < padW; x++) {
-                    const refCoord = getPaddingSourcePixel(x, y, scaledWidth, scaledHeight, p, padMode);
+                    const ref = getPaddingSourcePixel(x, y, scaledWidth, scaledHeight, p, padMode);
                     const destIdx = (y * padW + x) * 4;
 
-                    if (refCoord === null) {
-                        padPixels[destIdx] = 0;
-                        padPixels[destIdx+1] = 0;
-                        padPixels[destIdx+2] = 0;
-                        padPixels[destIdx+3] = 255;
+                    if (ref === null) {
+                        padPixels[destIdx] = 0; padPixels[destIdx+1] = 0; padPixels[destIdx+2] = 0; padPixels[destIdx+3] = 255;
                     } else {
-                        const srcIdx = (refCoord.y * scaledWidth + refCoord.x) * 4;
+                        const srcIdx = (ref.y * scaledWidth + ref.x) * 4;
                         padPixels[destIdx] = srcPixels[srcIdx];
                         padPixels[destIdx+1] = srcPixels[srcIdx+1];
                         padPixels[destIdx+2] = srcPixels[srcIdx+2];
@@ -589,134 +549,113 @@
             }
             ctxPad.putImageData(paddedImgData, 0, 0);
 
-            // Render yellow guidelines showing the original frame in padded result
+            // Draw yellow border
             ctxPad.strokeStyle = '#eab308';
             ctxPad.lineWidth = 1;
             ctxPad.setLineDash([3, 3]);
             ctxPad.strokeRect(p, p, scaledWidth, scaledHeight);
 
-            // 3. Pooling Step
+            // Pooling Step
             const poolType = document.querySelector('input[name="poolType"]:checked').value;
             const f = parseInt(document.getElementById('paramPoolF').value);
             const s = parseInt(document.getElementById('paramPoolS').value);
-
             const canvasPooled = document.getElementById('canvasPooled');
             
             if (poolType === 'none') {
-                // If None, Pooled output is just a replica of Padded Frame
-                canvasPooled.width = padW;
-                canvasPooled.height = padH;
-                document.getElementById('dimPooled').innerText = `${padW} x ${padH} px (풀링 미적용)`;
+                canvasPooled.width = padW; canvasPooled.height = padH;
+                document.getElementById('dimPooled').innerText = `${padW} x ${padH} px (풀링 없음)`;
                 document.getElementById('calcPool').innerText = `풀링 미적용`;
-                const poolCtx = canvasPooled.getContext('2d');
-                poolCtx.putImageData(paddedImgData, 0, 0);
+                canvasPooled.getContext('2d').putImageData(paddedImgData, 0, 0);
             } else {
                 const poolW = Math.floor((padW - f) / s) + 1;
                 const poolH = Math.floor((padH - f) / s) + 1;
+                
+                if (poolW <= 0 || poolH <= 0) return;
 
-                if (poolW <= 0 || poolH <= 0) {
-                    document.getElementById('dimPooled').innerText = `연산 불가 (값 수정 필요)`;
-                    document.getElementById('calcPool').innerText = `연산 불가`;
-                    return;
-                }
-
-                canvasPooled.width = poolW;
-                canvasPooled.height = poolH;
+                canvasPooled.width = poolW; canvasPooled.height = poolH;
                 document.getElementById('dimPooled').innerText = `${poolW} x ${poolH} px`;
                 document.getElementById('calcPool').innerText = `${poolW} x ${poolH}`;
-
+                
                 const poolCtx = canvasPooled.getContext('2d');
-                const pooledImgData = poolCtx.createImageData(poolW, poolH);
-                const poolPixels = pooledImgData.data;
+                const pooledData = poolCtx.createImageData(poolW, poolH);
+                const outPix = pooledData.data;
 
                 for (let y = 0; y < poolH; y++) {
                     for (let x = 0; x < poolW; x++) {
-                        const startY = y * s;
-                        const startX = x * s;
-
-                        let rVals = [];
-                        let gVals = [];
-                        let bVals = [];
-
+                        let rArr=[], gArr=[], bArr=[];
                         for (let py = 0; py < f; py++) {
                             for (let px = 0; px < f; px++) {
-                                const curY = startY + py;
-                                const curX = startX + px;
+                                const curY = y*s + py, curX = x*s + px;
                                 if (curY < padH && curX < padW) {
                                     const idx = (curY * padW + curX) * 4;
-                                    rVals.push(padPixels[idx]);
-                                    gVals.push(padPixels[idx+1]);
-                                    bVals.push(padPixels[idx+2]);
+                                    rArr.push(padPixels[idx]); gArr.push(padPixels[idx+1]); bArr.push(padPixels[idx+2]);
                                 }
                             }
                         }
-
+                        
                         let r, g, b;
                         if (poolType === 'max') {
-                            r = Math.max(...rVals);
-                            g = Math.max(...gVals);
-                            b = Math.max(...bVals);
-                        } else {
-                            r = rVals.reduce((a, b) => a + b, 0) / rVals.length;
-                            g = gVals.reduce((a, b) => a + b, 0) / gVals.length;
-                            b = bVals.reduce((a, b) => a + b, 0) / bVals.length;
+                            r = Math.max(...rArr); g = Math.max(...gArr); b = Math.max(...bArr);
+                        } else if (poolType === 'avg') {
+                            r = rArr.reduce((a,b)=>a+b,0)/rArr.length;
+                            g = gArr.reduce((a,b)=>a+b,0)/gArr.length;
+                            b = bArr.reduce((a,b)=>a+b,0)/bArr.length;
+                        } else if (poolType === 'l2') {
+                            r = Math.sqrt(rArr.reduce((a,b)=>a+b*b,0)/rArr.length);
+                            g = Math.sqrt(gArr.reduce((a,b)=>a+b*b,0)/gArr.length);
+                            b = Math.sqrt(bArr.reduce((a,b)=>a+b*b,0)/bArr.length);
                         }
-
-                        const destIdx = (y * poolW + x) * 4;
-                        poolPixels[destIdx] = r;
-                        poolPixels[destIdx+1] = g;
-                        poolPixels[destIdx+2] = b;
-                        poolPixels[destIdx+3] = 255;
+                        
+                        const dIdx = (y * poolW + x) * 4;
+                        outPix[dIdx] = r; outPix[dIdx+1] = g; outPix[dIdx+2] = b; outPix[dIdx+3] = 255;
                     }
                 }
-                poolCtx.putImageData(pooledImgData, 0, 0);
+                poolCtx.putImageData(pooledData, 0, 0);
             }
         }
 
-        function getPaddingSourcePixel(x, y, origW, origH, p, mode) {
-            const internalX = x - p;
-            const internalY = y - p;
-            const isOutside = (internalX < 0 || internalX >= origW || internalY < 0 || internalY >= origH);
+        function getPaddingSourcePixel(x, y, w, h, p, mode) {
+            let internalX = x - p;
+            let internalY = y - p;
+            let isOut = (internalX < 0 || internalX >= w || internalY < 0 || internalY >= h);
 
-            if (mode === 'zero') {
-                return isOutside ? null : { x: internalX, y: internalY };
-            }
+            if (mode === 'zero') return isOut ? null : {x: internalX, y: internalY};
             if (mode === 'replicate') {
-                const rx = Math.max(0, Math.min(origW - 1, internalX));
-                const ry = Math.max(0, Math.min(origH - 1, internalY));
-                return { x: rx, y: ry };
+                return { x: Math.max(0, Math.min(w-1, internalX)), y: Math.max(0, Math.min(h-1, internalY)) };
             }
             if (mode === 'reflect') {
-                let rx = internalX;
-                let ry = internalY;
-                if (rx < 0) rx = -rx - 1;
-                if (rx >= origW) rx = 2 * origW - rx - 1;
-                if (ry < 0) ry = -ry - 1;
-                if (ry >= origH) ry = 2 * origH - ry - 1;
-                rx = Math.max(0, Math.min(origW - 1, rx));
-                ry = Math.max(0, Math.min(origH - 1, ry));
-                return { x: rx, y: ry };
+                if (internalX < 0) internalX = -internalX - 1;
+                if (internalX >= w) internalX = 2 * w - internalX - 1;
+                if (internalY < 0) internalY = -internalY - 1;
+                if (internalY >= h) internalY = 2 * h - internalY - 1;
+                return { x: Math.max(0, Math.min(w-1, internalX)), y: Math.max(0, Math.min(h-1, internalY)) };
+            }
+            if (mode === 'circular') {
+                return { x: (internalX % w + w) % w, y: (internalY % h + h) % h };
             }
             return null;
         }
 
-        // --- PILOTNET FEATURE VISUALIZER ---
         function drawPilotNetFeatures() {
-            const canvasInput = document.getElementById('canvasPilotInput');
-            canvasInput.width = 200;
-            canvasInput.height = 66;
-            const ctxIn = canvasInput.getContext('2d');
+            const canvasPooled = document.getElementById('canvasPooled');
+            const inW = canvasPooled.width;
+            const inH = canvasPooled.height;
             
-            // Render original but ensure it's resized correctly
-            ctxIn.drawImage(originalImg, 0, 0, 200, 66);
-            const srcImgData = ctxIn.getImageData(0, 0, 200, 66);
-            const pixels = srcImgData.data;
+            document.getElementById('lblInSize').innerText = `${inW}x${inH}`;
+            
+            const canvasInput = document.getElementById('canvasPilotInput');
+            canvasInput.width = inW;
+            canvasInput.height = inH;
+            const ctxIn = canvasInput.getContext('2d');
+            ctxIn.drawImage(canvasPooled, 0, 0);
+            
+            const srcPixels = ctxIn.getImageData(0, 0, inW, inH).data;
 
-            generateConvLayer('canvasPilotConv1', pixels, 200, 66, 98, 31, 'edge');
-            generateConvLayer('canvasPilotConv2', pixels, 200, 66, 47, 14, 'high-edge');
-            generateConvLayer('canvasPilotConv3', pixels, 200, 66, 22, 5, 'pattern');
-            generateConvLayer('canvasPilotConv4', pixels, 200, 66, 20, 3, 'abstract-drop');
-            generateConvLayer('canvasPilotConv5', pixels, 200, 66, 18, 1, 'vector');
+            generateConvLayer('canvasPilotConv1', srcPixels, inW, inH, 98, 31, 'edge');
+            generateConvLayer('canvasPilotConv2', srcPixels, inW, inH, 47, 14, 'high-edge');
+            generateConvLayer('canvasPilotConv3', srcPixels, inW, inH, 22, 5, 'pattern');
+            generateConvLayer('canvasPilotConv4', srcPixels, inW, inH, 20, 3, 'abstract-drop');
+            generateConvLayer('canvasPilotConv5', srcPixels, inW, inH, 18, 1, 'vector');
         }
 
         function generateConvLayer(canvasId, srcPixels, inW, inH, outW, outH, mode) {
@@ -726,70 +665,86 @@
             const ctx = canvas.getContext('2d');
             const imgData = ctx.createImageData(outW, outH);
             const data = imgData.data;
-
             const dropoutProb = parseInt(document.getElementById('paramDropout').value) / 100;
 
+            // 시각화 밝기 향상 및 패턴 명확화 로직 개선
             for (let y = 0; y < outH; y++) {
                 for (let x = 0; x < outW; x++) {
                     const srcX = Math.floor((x / outW) * inW);
                     const srcY = Math.floor((y / outH) * inH);
                     const srcIdx = (srcY * inW + srcX) * 4;
 
-                    let r = srcPixels[srcIdx];
-                    let g = srcPixels[srcIdx + 1];
-                    let b = srcPixels[srcIdx + 2];
+                    let gray = srcPixels[srcIdx]*0.299 + srcPixels[srcIdx+1]*0.587 + srcPixels[srcIdx+2]*0.114;
+                    
+                    let rIdx = (srcY * inW + Math.min(srcX + 1, inW - 1)) * 4;
+                    let bIdx = (Math.min(srcY + 1, inH - 1) * inW + srcX) * 4;
+                    let grayR = srcPixels[rIdx]*0.299 + srcPixels[rIdx+1]*0.587 + srcPixels[rIdx+2]*0.114;
+                    let grayB = srcPixels[bIdx]*0.299 + srcPixels[bIdx+1]*0.587 + srcPixels[bIdx+2]*0.114;
+                    
+                    let edge = Math.abs(gray - grayR) + Math.abs(gray - grayB);
+                    let r=0, g=0, b=0;
+                    
+                    // Edge 값을 더 증폭하여 너무 어두운 현상을 방지
+                    edge = edge * 2.5; 
 
                     if (mode === 'edge') {
-                        const v = (r * 0.299 + g * 0.587 + b * 0.114) > 100 ? 255 : 40;
-                        r = v; g = v; b = v * 1.5;
+                        let v = Math.min(255, edge); 
+                        r = v; g = v; b = v; // 하얀 윤곽선이 뚜렷하게 나옴
                     } else if (mode === 'high-edge') {
-                        const v = (r * 0.299 + g * 0.587 + b * 0.114) > 128 ? 240 : 15;
-                        r = v; g = v * 1.3; b = v;
+                        // 이전 코드보다 문턱값을 낮추고 값을 올려서 초록 패턴이 잘보이게 함
+                        let v = edge > 15 ? 255 : 30;
+                        g = v; 
+                        b = 30; // 약간의 푸른기 추가
                     } else if (mode === 'pattern') {
-                        r = (x % 2 === 0) ? r * 1.2 : 20;
-                        g = g * 0.5;
-                        b = (y % 2 === 0) ? 230 : b;
+                        // 텍스처 패턴 보라색 증폭
+                        let v = edge > 25 ? 255 : 40;
+                        r = v; b = v; 
                     } else if (mode === 'abstract-drop') {
                         if (Math.random() < dropoutProb) {
-                            r = 0; g = 0; b = 0;
+                            r = 0; g = 0; b = 0; // 완전 검정 (Dropout된 픽셀)
                         } else {
-                            r = (r * 0.299 + g * 0.587 + b * 0.114) > 90 ? 250 : 20;
-                            g = 15;
-                            b = 200;
+                            // 살아남은 픽셀
+                            let v = edge > 35 ? 255 : 80;
+                            r = 50; g = 50; b = v; 
                         }
                     } else if (mode === 'vector') {
-                        const rawVal = r * 0.299 + g * 0.587 + b * 0.114;
-                        r = rawVal > 80 ? 255 : 0;
-                        g = rawVal > 150 ? 255 : 40;
-                        b = 255;
+                        // 18x1 조향 벡터: 그라데이션 및 방향성 포인트(Steering Vector)처럼 보이도록 수정
+                        // 단색 파란색이 아닌, X 좌표에 따라 붉은색~푸른색 변화를 주고 값이 있는 곳에 하이라이트
+                        const normX = x / outW; 
+                        if (edge > 40) {
+                            r = Math.floor(255 * (1 - normX));
+                            g = 255; 
+                            b = Math.floor(255 * normX);
+                        } else {
+                            r = Math.floor(100 * (1 - normX));
+                            g = 20;
+                            b = Math.floor(100 * normX);
+                        }
                     }
 
-                    const destIdx = (y * outW + x) * 4;
-                    data[destIdx] = Math.min(255, r);
-                    data[destIdx + 1] = Math.min(255, g);
-                    data[destIdx + 2] = Math.min(255, b);
-                    data[destIdx + 3] = 255;
+                    const dIdx = (y * outW + x) * 4;
+                    data[dIdx] = r; data[dIdx+1] = g; data[dIdx+2] = b; data[dIdx+3] = 255;
                 }
             }
             ctx.putImageData(imgData, 0, 0);
         }
 
-        // --- INTERACTIVE COORDINATE TRACER ---
         function setupInteractiveTracer() {
+            // 패딩된 캔버스 마우스 추적 이벤트
             const canvasPadded = document.getElementById('canvasPadded');
-            const canvasOrigHighlight = document.getElementById('canvasOrigHighlight');
-
+            
             canvasPadded.addEventListener('mousemove', (e) => {
                 const rect = canvasPadded.getBoundingClientRect();
                 const x = e.clientX - rect.left;
                 const y = e.clientY - rect.top;
+
+                if(x < 0 || y < 0 || x > rect.width || y > rect.height) return;
 
                 const pctX = x / rect.width;
                 const pctY = y / rect.height;
 
                 const p = parseInt(document.getElementById('paramP').value);
                 const mode = document.querySelector('input[name="padMode"]:checked').value;
-
                 const outW = scaledWidth + 2 * p;
                 const outH = scaledHeight + 2 * p;
 
@@ -803,16 +758,18 @@
             });
 
             canvasPadded.addEventListener('mouseleave', () => {
-                const ctx = canvasOrigHighlight.getContext('2d');
-                ctx.clearRect(0, 0, scaledWidth, scaledHeight);
+                const canvas = document.getElementById('canvasOrigHighlight');
+                canvas.width = scaledWidth;
+                canvas.height = scaledHeight; 
             });
         }
 
         function drawTracePointer(coord) {
             const canvas = document.getElementById('canvasOrigHighlight');
+            canvas.width = scaledWidth;
+            canvas.height = scaledHeight;
             const ctx = canvas.getContext('2d');
-            ctx.clearRect(0, 0, scaledWidth, scaledHeight);
-
+            
             if (coord === null) return;
 
             ctx.strokeStyle = '#ef4444';
@@ -833,6 +790,69 @@
             ctx.fillStyle = '#f87171';
             ctx.fill();
             ctx.stroke();
+        }
+
+        function setupModalHandling() {
+            const modal = document.getElementById('imageModal');
+            const btnCloseModal = document.getElementById('closeModal');
+
+            btnCloseModal.addEventListener('click', () => modal.classList.add('hidden'));
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) modal.classList.add('hidden');
+            });
+        }
+
+        // onclick 이벤트가 HTML 카드 태그에 달려있어서 글로벌 함수로 뺌
+        window.openModal = function(canvasId, title) {
+            const canvas = document.getElementById(canvasId);
+            const modal = document.getElementById('imageModal');
+            const modalImg = document.getElementById('modalImage');
+            const modalTitle = document.getElementById('modalTitle');
+            const modalDimensions = document.getElementById('modalDimensions');
+
+            let intrinsicWidth, intrinsicHeight;
+
+            if (canvasId === 'canvasOriginal') {
+                // 1번 오리지널 클릭 시: 리사이징 되기 전 진짜 업로드된 원본을 보여줌
+                modalImg.src = rawUploadedImg.src;
+                modalTitle.innerHTML = `<span>🔎</span> ${title} (실제 원본)`;
+                modalDimensions.innerText = `Original File Size: ${rawUploadedImg.width} x ${rawUploadedImg.height} px`;
+                intrinsicWidth = rawUploadedImg.width;
+                intrinsicHeight = rawUploadedImg.height;
+            } else {
+                // 나머지 특징맵 클릭 시: 데이터는 변형된 크기지만 렌더링을 원본 비율로 맞춤
+                modalImg.src = canvas.toDataURL('image/png');
+                modalTitle.innerHTML = `<span>🔎</span> ${title}`;
+                modalDimensions.innerText = `Feature Data Size: ${canvas.width} x ${canvas.height} px (원본 비율로 시각화됨)`;
+                // 시각화 비율은 항상 최초 업로드된 원본 비율(intrinsic ratio)을 따름
+                intrinsicWidth = rawUploadedImg.width;
+                intrinsicHeight = rawUploadedImg.height;
+            }
+            
+            // 화면 크기에 비례하여 픽셀을 또렷하게 볼 수 있는 크기 계산 로직
+            const containerWidth = window.innerWidth * 0.8;
+            const containerHeight = window.innerHeight * 0.7;
+            
+            const targetRatio = intrinsicWidth / intrinsicHeight;
+            const containerRatio = containerWidth / containerHeight;
+
+            let finalWidth, finalHeight;
+
+            // 원본 비율을 유지하면서 팝업 컨테이너에 꽉 차게 계산
+            if (targetRatio > containerRatio) {
+                finalWidth = containerWidth;
+                finalHeight = containerWidth / targetRatio;
+            } else {
+                finalHeight = containerHeight;
+                finalWidth = containerHeight * targetRatio;
+            }
+
+            // 강제 리사이징 적용 (CSS의 object-fit: fill 속성을 줘서 비율에 맞게 강제 스트레칭)
+            modalImg.style.width = Math.round(finalWidth) + 'px';
+            modalImg.style.height = Math.round(finalHeight) + 'px';
+            modalImg.style.objectFit = 'fill'; 
+
+            modal.classList.remove('hidden');
         }
     </script>
 </body>

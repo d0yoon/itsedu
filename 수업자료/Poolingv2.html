@@ -78,6 +78,12 @@
                     <span id="pixelModeIcon">🔍</span> <span id="pixelModeText">크리스프 확대뷰</span>
                 </button>
                 
+                <!-- PyTorch Integration File Input -->
+                <label class="cursor-pointer bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-slate-950 font-extrabold px-4 py-2.5 rounded-lg transition duration-200 flex items-center gap-2 text-sm shadow-lg shadow-emerald-500/10">
+                    <span>🔌</span> PyTorch 피처맵 연동 (.json)
+                    <input type="file" id="pytorchLoader" accept=".json" class="hidden">
+                </label>
+
                 <label class="cursor-pointer bg-sky-500 hover:bg-sky-600 text-slate-950 font-bold px-4 py-2.5 rounded-lg transition duration-200 flex items-center gap-2 text-sm shadow-lg shadow-sky-500/10">
                     <span>📁</span> 실도로 이미지 업로드
                     <input type="file" id="imageLoader" accept="image/*" class="hidden">
@@ -85,6 +91,7 @@
             </div>
         </header>
 
+        <!-- Tab Selector -->
         <div class="flex border-b border-slate-800 gap-2">
             <button id="btnTabPreprocess" class="px-5 py-2.5 font-bold text-sm border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition active-tab">
                 🛠️ 1단계: 전처리 실험실 (Padding & Pooling)
@@ -92,8 +99,12 @@
             <button id="btnTabPilot" class="px-5 py-2.5 font-bold text-sm border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition">
                 🎬 2단계: PilotNet 레이어 시각화
             </button>
+            <button id="btnTabPython" class="px-5 py-2.5 font-bold text-sm border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition">
+                🐍 PyTorch 실모델 연동 가이드
+            </button>
         </div>
 
+        <!-- 1단계: 전처리 실험실 -->
         <div id="tabPreprocessContent" class="space-y-6">
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <!-- Control Panel -->
@@ -191,13 +202,12 @@
                             <div class="canvas-container glow-sky w-full h-40 p-2">
                                 <div class="relative inline-flex max-w-full max-h-full">
                                     <canvas id="canvasOriginal" class="max-w-full max-h-full"></canvas>
-                                    <!-- highlight 캔버스는 마우스 위치 추적용이므로 클릭방지 유지 -->
                                     <canvas id="canvasOrigHighlight" class="absolute top-0 left-0 w-full h-full pointer-events-none"></canvas>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Padded Card (이건 드래그를 위해 별도 처리) -->
+                        <!-- Padded Card -->
                         <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 flex flex-col justify-between" id="cardPadded">
                             <div class="h-16 flex flex-col justify-start pb-2 pointer-events-none">
                                 <h3 class="text-sm font-bold text-slate-200 uppercase text-teal-400 flex justify-between">
@@ -206,7 +216,6 @@
                                 </h3>
                                 <span class="text-xs font-mono text-slate-400" id="dimPadded">216 x 82 px</span>
                             </div>
-                            <!-- Padded 캔버스는 마우스 위치를 읽어야 하므로 pointer-events: none을 해제 -->
                             <div class="canvas-container glow-teal w-full h-40 p-2 cursor-crosshair !pointer-events-auto" id="containerPadded">
                                 <canvas id="canvasPadded" class="max-w-full max-h-full"></canvas>
                             </div>
@@ -236,18 +245,19 @@
             </div>
         </div>
 
+        <!-- 2단계: PilotNet 레이어 시각화 -->
         <div id="tabPilotContent" class="space-y-6 hidden">
             
-            <!-- 실제 모델이 아님을 명시하는 경고 문구 추가 -->
-            <div class="bg-red-950/30 border border-red-500/30 p-4 rounded-xl text-red-200 text-sm flex gap-3 items-start">
-                <span>⚠️</span>
+            <!-- Dynamic Status Warning Box -->
+            <div id="statusAlertBox" class="bg-amber-950/30 border border-amber-500/30 p-4 rounded-xl text-amber-200 text-sm flex gap-3 items-start transition-all duration-300">
+                <span id="statusIcon">⚠️</span>
                 <p>
-                    <strong>시각화 안내:</strong> 현재 웹 브라우저 환경에는 차량 주행을 위해 학습된 <strong>실제 신경망 가중치(Weights)가 포함되어 있지 않습니다.</strong> 따라서 아래 CONV1~5 이미지는 특징 추출(Feature Extraction)의 실제 결과물이 아니며, 데이터 차원이 <strong>어떤 크기로 축소(Downsampling)되는지 직관적으로 보여주기 위한 흑백 모사(Simulation) 데이터</strong>입니다. 각 단계별로 채널(Channel) 수가 늘어나지만, 본 시각화에서는 대표 채널 1개의 차원 변화만 단순화하여 보여줍니다.
+                    <strong id="statusTitle">실시간 수학적 모사 상태:</strong> 현재는 브라우저 내부에서 수식으로 계산한 가상 데이터입니다. 실제 PyTorch 실모델과 연결하여 진짜 피처맵 결과를 보시려면 우측 상단 <strong>[PyTorch 피처맵 연동]</strong> 버튼 또는 <strong>[PyTorch 실모델 연동 가이드]</strong> 탭을 클릭하여 연동 가이드를 따라 진행해 주세요.
                 </p>
             </div>
 
             <div class="bg-slate-950 p-5 rounded-xl border border-slate-800 flex flex-col md:flex-row gap-6 items-center">
-                <!-- Dropdown Settings -->
+                <!-- Dropout Control Panel -->
                 <div class="w-full md:w-1/3 space-y-4">
                     <h2 class="text-lg font-bold text-pink-400 border-b border-slate-800 pb-2">🛡️ Dropout 마스크 설정</h2>
                     <div class="space-y-2">
@@ -273,7 +283,6 @@
                 </div>
             </div>
 
-            <!-- Symmetrical CNN Pipeline row -->
             <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
                 <!-- Conv1 -->
                 <div class="bg-slate-950 p-3 rounded-lg border border-slate-800 text-center flex flex-col justify-between clickable-card" onclick="openModal('canvasPilotConv1', 'CONV1 (24 ch) - 외곽선 검출')">
@@ -326,14 +335,97 @@
                         <h4 class="text-xs font-bold text-slate-200 mt-0.5">조향 벡터 맵</h4>
                         <span class="text-xs font-mono text-slate-500">18x1</span>
                     </div>
-                    <div class="canvas-container w-full h-24 p-1 bg-[#1e1b4b] overflow-hidden relative"> <!-- 배경색 지정하여 보기 좋게 만듦 -->
+                    <div class="canvas-container w-full h-24 p-1 bg-[#1e1b4b] overflow-hidden relative">
                         <canvas id="canvasPilotConv5" class="max-w-full max-h-full"></canvas>
                     </div>
                 </div>
             </div>
         </div>
+
+        <!-- 3단계: PyTorch 실모델 연동 가이드 및 코드 가시성 패널 -->
+        <div id="tabPythonContent" class="space-y-6 hidden">
+            <div class="bg-slate-950 p-6 rounded-xl border border-slate-800 space-y-4">
+                <div class="flex items-center gap-3 border-b border-slate-800 pb-3">
+                    <span class="text-2xl">🐍</span>
+                    <div>
+                        <h2 class="text-lg font-bold text-emerald-400">PyTorch 실도로 주행 코드 연동 완벽 가이드</h2>
+                        <p class="text-xs text-slate-400">aicarA.ipynb 또는 ar.py에서 학습된 가중치를 거쳐 나온 실시간 피처맵 텐서를 추출하여 이 웹 도구에 주입해 보세요.</p>
+                    </div>
+                </div>
+
+                <div class="space-y-4 text-sm text-slate-300 leading-relaxed">
+                    <p>
+                        브라우저 환경의 연산 한계 극복을 위해, 학생들이 학습시킨 실제 신경망의 차원 변화 데이터를 고스란히 저장해 줄 수 있는 초간단 Python 모듈입니다. 아래 스크립트를 복사하여 코랩 또는 로컬 주행 코드의 <span class="text-sky-400 font-mono">predict_steering</span> 함수나 추론 로직 맨 끝에 복사해 넣기만 하면 실시간 피처맵이 포함된 파일(<span class="text-emerald-400 font-mono">pilotnet_features.json</span>)이 내려받아집니다.
+                    </p>
+
+                    <!-- Python Code Block Container -->
+                    <div class="relative bg-slate-900 border border-slate-800 rounded-lg overflow-hidden">
+                        <div class="flex justify-between items-center px-4 py-2 bg-slate-950 border-b border-slate-800">
+                            <span class="text-xs font-mono text-slate-400">ar.py or aicarA.ipynb (Feature Map Exporter)</span>
+                            <button id="btnCopyPython" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 px-2.5 py-1 rounded transition border border-slate-700">코드 복사</button>
+                        </div>
+                        <pre class="p-4 text-xs font-mono text-slate-300 overflow-x-auto max-h-80"><code id="pythonCodeSnippet">import json
+import torch
+import numpy as np
+
+# PyTorch 모델 피처맵 일괄 추출용 헬퍼 함수
+@torch.no_grad()
+def export_pilotnet_features(model, input_tensor, save_path="pilotnet_features.json"):
+    """
+    model: NvidiaModel (NVIDIA PilotNet) 인스턴스
+    input_tensor: [1, 3, 66, 200] 크기의 전처리 완료된 PyTorch Tensor
+    """
+    features = {}
+    model.eval()
+    
+    # 1. 입력 원본 데이터 보관 (H x W x C 형태로 저장)
+    inp = input_tensor.squeeze(0).cpu().numpy() # [3, 66, 200]
+    # RGB 변환 및 역정규화(0-255)
+    inp = (inp * 255.0).astype(np.uint8).transpose(1, 2, 0)
+    features["input"] = inp.tolist()
+    
+    # 2. 레이어 바이 레이어 전달하며 각 단계별 텐서 특징맵 수집
+    x = input_tensor
+    conv_indices = {0: "conv1", 2: "conv2", 4: "conv3", 6: "conv4", 9: "conv5"}
+    
+    for idx, layer in enumerate(model.layer1):
+        x = layer(x)
+        if idx in conv_indices:
+            name = conv_indices[idx]
+            # [1, Channels, Height, Width] -> [Channels, Height, Width]
+            tensor_np = x.squeeze(0).cpu().numpy()
+            
+            # 대표 채널 0번 및 평균 피처맵 2가지를 전송하여 정교성 대폭 강화!
+            features[name] = {
+                "ch0": tensor_np[0].tolist(),
+                "mean": tensor_np.mean(axis=0).tolist(),
+                "channels": int(tensor_np.shape[0])
+            }
+            
+    # 3. 브라우저가 다이렉트로 해석할 수 있는 JSON 파일 저장
+    with open(save_path, "w") as f:
+        json.dump(features, f)
+    print(f"🎉 성공: 실제 피처맵 데이터가 '{save_path}' 파일로 저장되었습니다.")
+    print("이제 우측 상단의 [PyTorch 피처맵 연동] 버튼을 통해 웹 실습 도구에 드롭하세요!")</code></pre>
+                    </div>
+
+                    <div class="bg-emerald-950/20 border border-emerald-500/20 p-4 rounded-xl flex gap-3 text-emerald-200">
+                        <span>💡</span>
+                        <div>
+                            <strong class="block text-sm">연동 성공 시의 변화:</strong>
+                            <ul class="list-disc pl-5 text-xs space-y-1 mt-1 text-slate-300">
+                                <li><strong>진짜 가중치 활성화:</strong> 임의 계산(수식 필터링)이 아닌, 인공지능이 실제 딥러닝 트랙을 가중치 연산하여 강조해낸 특징들이 활성화됩니다.</li>
+                                <li><strong>채널 정보의 실시간 확인:</strong> JSON에 포함된 다채널 대표 값을 로딩하여 마지막 레이어들의 차원 축소가 그라데이션이 아닌, 실제 조향 텐서 맵 형태로 선명하게 복원됩니다.</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
     </div>
 
+    <!-- Image Modal Popup Container -->
     <div id="imageModal" class="fixed inset-0 z-[100] hidden bg-slate-950/90 backdrop-blur-sm flex items-center justify-center p-4 transition-all duration-300">
         <div class="bg-slate-900 border border-slate-700 rounded-xl shadow-[0_0_50px_rgba(0,0,0,0.5)] overflow-hidden max-w-5xl w-full flex flex-col relative" onclick="event.stopPropagation()">
             <!-- Header -->
@@ -360,32 +452,52 @@
     </div>
 
     <script>
-        let rawUploadedImg = new Image(); // 진짜 원본 이미지를 보관할 변수
+        let rawUploadedImg = new Image(); 
         let originalImg = new Image();
         let scaledWidth = 200;
         let scaledHeight = 66;
         let pixelViewMode = false;
+        
+        // PyTorch Real Model Feature Data Store
+        let pyTorchRealData = null;
 
         const btnTabPreprocess = document.getElementById('btnTabPreprocess');
         const btnTabPilot = document.getElementById('btnTabPilot');
+        const btnTabPython = document.getElementById('btnTabPython');
+        
         const tabPreprocessContent = document.getElementById('tabPreprocessContent');
         const tabPilotContent = document.getElementById('tabPilotContent');
+        const tabPythonContent = document.getElementById('tabPythonContent');
+        
         const btnPixelMode = document.getElementById('btnPixelMode');
 
         btnTabPreprocess.addEventListener('click', () => {
             btnTabPreprocess.classList.add('active-tab');
             btnTabPilot.classList.remove('active-tab');
+            btnTabPython.classList.remove('active-tab');
             tabPreprocessContent.classList.remove('hidden');
             tabPilotContent.classList.add('hidden');
+            tabPythonContent.classList.add('hidden');
             drawAll();
         });
 
         btnTabPilot.addEventListener('click', () => {
             btnTabPilot.classList.add('active-tab');
             btnTabPreprocess.classList.remove('active-tab');
+            btnTabPython.classList.remove('active-tab');
             tabPilotContent.classList.remove('hidden');
             tabPreprocessContent.classList.add('hidden');
+            tabPythonContent.classList.add('hidden');
             drawAll();
+        });
+
+        btnTabPython.addEventListener('click', () => {
+            btnTabPython.classList.add('active-tab');
+            btnTabPreprocess.classList.remove('active-tab');
+            btnTabPilot.classList.remove('active-tab');
+            tabPythonContent.classList.remove('hidden');
+            tabPreprocessContent.classList.add('hidden');
+            tabPilotContent.classList.add('hidden');
         });
 
         btnPixelMode.addEventListener('click', () => {
@@ -412,11 +524,33 @@
             drawAll();
         });
 
+        // Copy Python Script helper
+        document.getElementById('btnCopyPython').addEventListener('click', () => {
+            const codeText = document.getElementById('pythonCodeSnippet').innerText;
+            const tempTextArea = document.createElement('textarea');
+            tempTextArea.value = codeText;
+            document.body.appendChild(tempTextArea);
+            tempTextArea.select();
+            try {
+                document.execCommand('copy');
+                document.getElementById('btnCopyPython').innerText = "복사 완료! ✔";
+                document.getElementById('btnCopyPython').classList.replace('bg-slate-800', 'bg-emerald-600');
+                setTimeout(() => {
+                    document.getElementById('btnCopyPython').innerText = "코드 복사";
+                    document.getElementById('btnCopyPython').classList.replace('bg-emerald-600', 'bg-slate-800');
+                }, 2000);
+            } catch (err) {
+                console.error("복사에 실패했습니다.", err);
+            }
+            document.body.removeChild(tempTextArea);
+        });
+
         window.addEventListener('load', () => {
             setupParameters();
             setupImageLoader();
+            setupPyTorchLoader();
             setupInteractiveTracer();
-            setupModalHandling(); // 모달 닫기 이벤트 등록
+            setupModalHandling(); 
             loadDefaultImage();
         });
 
@@ -455,7 +589,6 @@
             ctx.moveTo(130, 66); ctx.bezierCurveTo(100, 35, 20, 35, 60, 0);
             ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 2; ctx.stroke();
 
-            // 기본 이미지 로드 시 원본 보관용과 모델용(200x66)을 동일하게 설정
             rawUploadedImg.src = tempCanvas.toDataURL();
             originalImg.src = tempCanvas.toDataURL();
             originalImg.onload = processLoadedImage;
@@ -468,7 +601,6 @@
                     rawUploadedImg = new Image();
                     rawUploadedImg.onload = () => {
                         const scaleCanvas = document.createElement('canvas');
-                        // 강제로 도로 이미지 규격인 200x66으로 리사이즈하여 모델 인풋으로 규격화합니다.
                         scaleCanvas.width = 200;
                         scaleCanvas.height = 66;
                         const scaleCtx = scaleCanvas.getContext('2d');
@@ -483,6 +615,76 @@
                     reader.readAsDataURL(e.target.files[0]);
                 }
             });
+        }
+
+        // Handle JSON file exported from PyTorch
+        function setupPyTorchLoader() {
+            document.getElementById('pytorchLoader').addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    try {
+                        const parsed = JSON.parse(event.target.result);
+                        
+                        // Validation checks
+                        if (parsed.conv1 && parsed.conv2 && parsed.conv3 && parsed.conv4 && parsed.conv5) {
+                            pyTorchRealData = parsed;
+                            
+                            // Visual feedback about real model activation connection
+                            const alertBox = document.getElementById('statusAlertBox');
+                            alertBox.className = "bg-emerald-950/40 border border-emerald-500/40 p-4 rounded-xl text-emerald-200 text-sm flex gap-3 items-start transition-all duration-300";
+                            document.getElementById('statusIcon').innerText = "🟢";
+                            document.getElementById('statusTitle').innerText = "실제 PyTorch 실모델 데이터 연동 완료:";
+                            alertBox.querySelector('p').innerHTML = `<strong>실제 PyTorch 실모델 데이터 연동 완료:</strong> 현재 활성화된 CONV1~5 레이어 시각화는 <code>${file.name}</code> 파일에 내장된 실제 가중치의 피처맵 텐서 연산 결과입니다!`;
+
+                            // If JSON contains input image, reconstruct it in the UI!
+                            if (parsed.input) {
+                                reconstructInputFromPyTorch(parsed.input);
+                            } else {
+                                drawAll();
+                            }
+                        } else {
+                            alert("올바르지 않은 구조의 JSON 연동 파일입니다. 가이드 탭의 파이썬 코드로 만든 데이터인지 확인해주세요.");
+                        }
+                    } catch (err) {
+                        console.error(err);
+                        alert("JSON 구문 해석 오류가 발생했습니다. 파일 내용을 확인해주세요.");
+                    }
+                };
+                reader.readAsText(file);
+            });
+        }
+
+        function reconstructInputFromPyTorch(inputMatrix) {
+            const h = inputMatrix.length;
+            const w = inputMatrix[0].length;
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = w;
+            tempCanvas.height = h;
+            const ctx = tempCanvas.getContext('2d');
+            const imgData = ctx.createImageData(w, h);
+            const data = imgData.data;
+
+            for (let y = 0; y < h; y++) {
+                for (let x = 0; x < w; x++) {
+                    const idx = (y * w + x) * 4;
+                    const pixel = inputMatrix[y][x];
+                    data[idx] = pixel[0] || 0;
+                    data[idx+1] = pixel[1] || 0;
+                    data[idx+2] = pixel[2] || 0;
+                    data[idx+3] = 255;
+                }
+            }
+            ctx.putImageData(imgData, 0, 0);
+
+            rawUploadedImg = new Image();
+            rawUploadedImg.onload = () => {
+                originalImg.src = rawUploadedImg.src;
+                originalImg.onload = processLoadedImage;
+            };
+            rawUploadedImg.src = tempCanvas.toDataURL();
         }
 
         function processLoadedImage() {
@@ -651,14 +853,14 @@
             
             const srcPixels = ctxIn.getImageData(0, 0, inW, inH).data;
 
-            generateConvLayer('canvasPilotConv1', srcPixels, inW, inH, 98, 31, 'edge');
-            generateConvLayer('canvasPilotConv2', srcPixels, inW, inH, 47, 14, 'high-edge');
-            generateConvLayer('canvasPilotConv3', srcPixels, inW, inH, 22, 5, 'pattern');
-            generateConvLayer('canvasPilotConv4', srcPixels, inW, inH, 20, 3, 'abstract-drop');
-            generateConvLayer('canvasPilotConv5', srcPixels, inW, inH, 18, 1, 'vector');
+            generateConvLayer('canvasPilotConv1', srcPixels, inW, inH, 98, 31, 'edge', 'conv1');
+            generateConvLayer('canvasPilotConv2', srcPixels, inW, inH, 47, 14, 'high-edge', 'conv2');
+            generateConvLayer('canvasPilotConv3', srcPixels, inW, inH, 22, 5, 'pattern', 'conv3');
+            generateConvLayer('canvasPilotConv4', srcPixels, inW, inH, 20, 3, 'abstract-drop', 'conv4');
+            generateConvLayer('canvasPilotConv5', srcPixels, inW, inH, 18, 1, 'vector', 'conv5');
         }
 
-        function generateConvLayer(canvasId, srcPixels, inW, inH, outW, outH, mode) {
+        function generateConvLayer(canvasId, srcPixels, inW, inH, outW, outH, mode, layerKey) {
             const canvas = document.getElementById(canvasId);
             canvas.width = outW;
             canvas.height = outH;
@@ -667,70 +869,118 @@
             const data = imgData.data;
             const dropoutProb = parseInt(document.getElementById('paramDropout').value) / 100;
 
-            // 시각화 밝기 향상 및 패턴 명확화 로직 개선
-            for (let y = 0; y < outH; y++) {
-                for (let x = 0; x < outW; x++) {
-                    const srcX = Math.floor((x / outW) * inW);
-                    const srcY = Math.floor((y / outH) * inH);
-                    const srcIdx = (srcY * inW + srcX) * 4;
-
-                    let gray = srcPixels[srcIdx]*0.299 + srcPixels[srcIdx+1]*0.587 + srcPixels[srcIdx+2]*0.114;
-                    
-                    let rIdx = (srcY * inW + Math.min(srcX + 1, inW - 1)) * 4;
-                    let bIdx = (Math.min(srcY + 1, inH - 1) * inW + srcX) * 4;
-                    let grayR = srcPixels[rIdx]*0.299 + srcPixels[rIdx+1]*0.587 + srcPixels[rIdx+2]*0.114;
-                    let grayB = srcPixels[bIdx]*0.299 + srcPixels[bIdx+1]*0.587 + srcPixels[bIdx+2]*0.114;
-                    
-                    let edge = Math.abs(gray - grayR) + Math.abs(gray - grayB);
-                    let r=0, g=0, b=0;
-                    
-                    // Edge 값을 더 증폭하여 너무 어두운 현상을 방지
-                    edge = edge * 2.5; 
-
-                    if (mode === 'edge') {
-                        let v = Math.min(255, edge); 
-                        r = v; g = v; b = v; // 하얀 윤곽선이 뚜렷하게 나옴
-                    } else if (mode === 'high-edge') {
-                        // 이전 코드보다 문턱값을 낮추고 값을 올려서 초록 패턴이 잘보이게 함
-                        let v = edge > 15 ? 255 : 30;
-                        g = v; 
-                        b = 30; // 약간의 푸른기 추가
-                    } else if (mode === 'pattern') {
-                        // 텍스처 패턴 보라색 증폭
-                        let v = edge > 25 ? 255 : 40;
-                        r = v; b = v; 
-                    } else if (mode === 'abstract-drop') {
-                        if (Math.random() < dropoutProb) {
-                            r = 0; g = 0; b = 0; // 완전 검정 (Dropout된 픽셀)
-                        } else {
-                            // 살아남은 픽셀
-                            let v = edge > 35 ? 255 : 80;
-                            r = 50; g = 50; b = v; 
-                        }
-                    } else if (mode === 'vector') {
-                        // 18x1 조향 벡터: 그라데이션 및 방향성 포인트(Steering Vector)처럼 보이도록 수정
-                        // 단색 파란색이 아닌, X 좌표에 따라 붉은색~푸른색 변화를 주고 값이 있는 곳에 하이라이트
-                        const normX = x / outW; 
-                        if (edge > 40) {
-                            r = Math.floor(255 * (1 - normX));
-                            g = 255; 
-                            b = Math.floor(255 * normX);
-                        } else {
-                            r = Math.floor(100 * (1 - normX));
-                            g = 20;
-                            b = Math.floor(100 * normX);
-                        }
+            // If real PyTorch JSON has been uploaded, use REAL raw float weights instead of simulation formulas
+            if (pyTorchRealData && pyTorchRealData[layerKey]) {
+                const matrix = pyTorchRealData[layerKey].mean; // Use Channel mean for premium rendering
+                const rowH = matrix.length;
+                const colW = matrix[0].length;
+                
+                // 1. Find Min-Max values in the float array for dynamic normalization
+                let minVal = Infinity, maxVal = -Infinity;
+                for (let r = 0; r < rowH; r++) {
+                    for (let c = 0; c < colW; c++) {
+                        const val = matrix[r][c];
+                        if (val < minVal) minVal = val;
+                        if (val > maxVal) maxVal = val;
                     }
+                }
+                const range = maxVal - minVal || 1.0;
 
-                    const dIdx = (y * outW + x) * 4;
-                    data[dIdx] = r; data[dIdx+1] = g; data[dIdx+2] = b; data[dIdx+3] = 255;
+                // 2. Map coordinates & Render
+                for (let y = 0; y < outH; y++) {
+                    for (let x = 0; x < outW; x++) {
+                        const matrixY = Math.min(rowH - 1, Math.floor((y / outH) * rowH));
+                        const matrixX = Math.min(colW - 1, Math.floor((x / outW) * colW));
+                        const rawVal = matrix[matrixY][matrixX];
+                        
+                        // Normalize to 0-255 scale
+                        const normVal = Math.floor(((rawVal - minVal) / range) * 255);
+                        let r = 0, g = 0, b = 0;
+
+                        if (mode === 'edge') {
+                            r = normVal; g = normVal; b = normVal;
+                        } else if (mode === 'high-edge') {
+                            // High contrast emerald-green
+                            g = normVal; r = Math.floor(normVal * 0.1); b = Math.floor(normVal * 0.2);
+                        } else if (mode === 'pattern') {
+                            // Indigo-purple style
+                            r = normVal; b = normVal; g = Math.floor(normVal * 0.1);
+                        } else if (mode === 'abstract-drop') {
+                            if (Math.random() < dropoutProb) {
+                                r = 0; g = 0; b = 0;
+                            } else {
+                                b = normVal; r = Math.floor(normVal * 0.3); g = Math.floor(normVal * 0.1);
+                            }
+                        } else if (mode === 'vector') {
+                            // Actual vectorized maps: show real weights distribution in color gradients
+                            const normX = x / outW;
+                            r = Math.floor(normVal * (1 - normX));
+                            g = normVal;
+                            b = Math.floor(normVal * normX);
+                        }
+
+                        const dIdx = (y * outW + x) * 4;
+                        data[dIdx] = r; data[dIdx+1] = g; data[dIdx+2] = b; data[dIdx+3] = 255;
+                    }
+                }
+            } else {
+                // FALLBACK: Traditional procedurally computed simulation filter
+                for (let y = 0; y < outH; y++) {
+                    for (let x = 0; x < outW; x++) {
+                        const srcX = Math.min(inW - 1, Math.floor((x / outW) * inW));
+                        const srcY = Math.min(inH - 1, Math.floor((y / outH) * inH));
+                        const srcIdx = (srcY * inW + srcX) * 4;
+
+                        let gray = srcPixels[srcIdx]*0.299 + srcPixels[srcIdx+1]*0.587 + srcPixels[srcIdx+2]*0.114;
+                        
+                        let rIdx = (srcY * inW + Math.min(srcX + 1, inW - 1)) * 4;
+                        let bIdx = (Math.min(srcY + 1, inH - 1) * inW + srcX) * 4;
+                        let grayR = srcPixels[rIdx]*0.299 + srcPixels[rIdx+1]*0.587 + srcPixels[rIdx+2]*0.114;
+                        let grayB = srcPixels[bIdx]*0.299 + srcPixels[bIdx+1]*0.587 + srcPixels[bIdx+2]*0.114;
+                        
+                        let edge = Math.abs(gray - grayR) + Math.abs(gray - grayB);
+                        let r = 0, g = 0, b = 0;
+                        
+                        edge = edge * 2.5; 
+
+                        if (mode === 'edge') {
+                            let v = Math.min(255, edge); 
+                            r = v; g = v; b = v;
+                        } else if (mode === 'high-edge') {
+                            let v = edge > 15 ? 255 : 30;
+                            g = v; b = 30;
+                        } else if (mode === 'pattern') {
+                            let v = edge > 25 ? 255 : 40;
+                            r = v; b = v; 
+                        } else if (mode === 'abstract-drop') {
+                            if (Math.random() < dropoutProb) {
+                                r = 0; g = 0; b = 0;
+                            } else {
+                                let v = edge > 35 ? 255 : 80;
+                                r = 50; g = 50; b = v; 
+                            }
+                        } else if (mode === 'vector') {
+                            const normX = x / outW; 
+                            if (edge > 40) {
+                                r = Math.floor(255 * (1 - normX));
+                                g = 255; 
+                                b = Math.floor(255 * normX);
+                            } else {
+                                r = Math.floor(100 * (1 - normX));
+                                g = 20;
+                                b = Math.floor(100 * normX);
+                            }
+                        }
+
+                        const dIdx = (y * outW + x) * 4;
+                        data[dIdx] = r; data[dIdx+1] = g; data[dIdx+2] = b; data[dIdx+3] = 255;
+                    }
                 }
             }
             ctx.putImageData(imgData, 0, 0);
         }
 
         function setupInteractiveTracer() {
-            // 패딩된 캔버스 마우스 추적 이벤트
             const canvasPadded = document.getElementById('canvasPadded');
             
             canvasPadded.addEventListener('mousemove', (e) => {
@@ -802,7 +1052,6 @@
             });
         }
 
-        // onclick 이벤트가 HTML 카드 태그에 달려있어서 글로벌 함수로 뺌
         window.openModal = function(canvasId, title) {
             const canvas = document.getElementById(canvasId);
             const modal = document.getElementById('imageModal');
@@ -813,23 +1062,19 @@
             let intrinsicWidth, intrinsicHeight;
 
             if (canvasId === 'canvasOriginal') {
-                // 1번 오리지널 클릭 시: 리사이징 되기 전 진짜 업로드된 원본을 보여줌
                 modalImg.src = rawUploadedImg.src;
                 modalTitle.innerHTML = `<span>🔎</span> ${title} (실제 원본)`;
                 modalDimensions.innerText = `Original File Size: ${rawUploadedImg.width} x ${rawUploadedImg.height} px`;
                 intrinsicWidth = rawUploadedImg.width;
                 intrinsicHeight = rawUploadedImg.height;
             } else {
-                // 나머지 특징맵 클릭 시: 데이터는 변형된 크기지만 렌더링을 원본 비율로 맞춤
                 modalImg.src = canvas.toDataURL('image/png');
                 modalTitle.innerHTML = `<span>🔎</span> ${title}`;
                 modalDimensions.innerText = `Feature Data Size: ${canvas.width} x ${canvas.height} px (원본 비율로 시각화됨)`;
-                // 시각화 비율은 항상 최초 업로드된 원본 비율(intrinsic ratio)을 따름
                 intrinsicWidth = rawUploadedImg.width;
                 intrinsicHeight = rawUploadedImg.height;
             }
             
-            // 화면 크기에 비례하여 픽셀을 또렷하게 볼 수 있는 크기 계산 로직
             const containerWidth = window.innerWidth * 0.8;
             const containerHeight = window.innerHeight * 0.7;
             
@@ -838,7 +1083,6 @@
 
             let finalWidth, finalHeight;
 
-            // 원본 비율을 유지하면서 팝업 컨테이너에 꽉 차게 계산
             if (targetRatio > containerRatio) {
                 finalWidth = containerWidth;
                 finalHeight = containerWidth / targetRatio;
@@ -847,7 +1091,6 @@
                 finalWidth = containerHeight * targetRatio;
             }
 
-            // 강제 리사이징 적용 (CSS의 object-fit: fill 속성을 줘서 비율에 맞게 강제 스트레칭)
             modalImg.style.width = Math.round(finalWidth) + 'px';
             modalImg.style.height = Math.round(finalHeight) + 'px';
             modalImg.style.objectFit = 'fill'; 
